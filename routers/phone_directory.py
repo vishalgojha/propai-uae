@@ -23,12 +23,19 @@ from routers.common import (
 router = APIRouter(tags=["phone_directory"])
 
 
-_phone_re = re.compile(r"^\+?\d{10,15}$")
+_phone_re = re.compile(r"^\+?\d{9,15}$")
 
 
 def _normalize_phone(value: object) -> str:
+    """Format-insensitive dedupe key: drop country code and trunk zero."""
     digits = re.sub(r"\D+", "", str(value or ""))
-    return digits[-10:] if len(digits) >= 10 else ""
+    if len(digits) == 12 and digits.startswith("971"):
+        digits = digits[3:]
+    elif len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    elif len(digits) == 10 and digits.startswith("0"):
+        digits = digits[1:]
+    return digits
 
 
 async def _request_organization_id(user: dict, tenant_id: str | None) -> str:
@@ -71,15 +78,26 @@ class DirectoryPatchRequest(BaseModel):
 
 
 def _validate_phone_string(value: str) -> str:
+    """Canonicalise a directory number to country-code-prefixed digits.
+
+    Accepts UAE (+971 5X XXX XXXX / 971XXXXXXXXX / 05X XXX XXXX / 5X XXX XXXX)
+    and Indian (91XXXXXXXXXX / 10-digit mobile) formats.
+    """
     raw = re.sub(r"\s+", "", str(value or ""))
     if not _phone_re.match(raw):
         raise HTTPException(400, "Enter a WhatsApp phone number with country code")
-    digits = re.sub(r"\D+", "", raw)
-    if len(digits) == 10:
-        return "91" + digits
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) == 12 and digits.startswith("971"):
+        return digits
+    if len(digits) == 10 and digits.startswith("05"):
+        return "971" + digits[1:]
+    if len(digits) == 9 and digits[0] == "5":
+        return "971" + digits
     if len(digits) == 12 and digits.startswith("91"):
         return digits
-    raise HTTPException(400, "Enter an Indian WhatsApp number as 91XXXXXXXXXX")
+    if len(digits) == 10 and digits[0] in "6789":
+        return "91" + digits
+    raise HTTPException(400, "Enter a WhatsApp number as 9715XXXXXXX (UAE) or 91XXXXXXXXXX (India)")
 
 
 @router.get("/api/orgs/{org_id}/phone-directory")

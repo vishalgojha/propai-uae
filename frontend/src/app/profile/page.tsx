@@ -471,7 +471,7 @@ export function ProfilePage() {
                               onChange={(e) => { setEditPhone(e.target.value); markDirty(); }}
                               required
                               className="rounded-md border border-white/10 bg-zinc-900 px-2 py-1.5 text-sm text-white outline-none focus:border-emerald-500/50"
-                              placeholder="+91XXXXXXXXXX"
+                              placeholder="+9715XXXXXXX / +91XXXXXXXXXX"
                             />
                             <input
                               value={editLabel}
@@ -538,7 +538,7 @@ export function ProfilePage() {
                   <input
                     value={addPhone}
                     onChange={(e) => setAddPhone(e.target.value)}
-                    placeholder="+91XXXXXXXXXX"
+                    placeholder="+9715XXXXXXX / +91XXXXXXXXXX"
                     required
                     className="rounded-md border border-white/10 bg-zinc-900 px-2 py-1.5 text-sm text-white outline-none focus:border-emerald-500/50"
                   />
