@@ -95,8 +95,8 @@ def parse(text: str) -> dict:
     >>> parse("near Linking Road")
     {'relation': 'near', 'main_query': 'linking road', ...}
 
-    >>> parse("Bandra Station")
-    {'relation': None, 'main_query': 'bandra', 'hint_type': 'station', ...}
+    >>> parse("Emirates Towers Metro Station")
+    {'relation': None, 'main_query': 'marina', 'hint_type': 'metro', ...}
     """
     raw = text.strip()
     lower = raw.lower().strip()

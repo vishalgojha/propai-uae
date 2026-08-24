@@ -348,8 +348,8 @@ async def _current_listing_search(query: dict, tenant_id: str | None, user_id: s
             "asset_type": property_type,
             "bhk": row.get("bhk"),
             "price": price,
-            "price_unit": "INR",
-            "price_formatted": chat_engine.fmt_listing_price(price, "INR", listing_intent),
+            "price_unit": "AED",
+            "price_formatted": chat_engine.fmt_listing_price(price, "AED", listing_intent),
             "area_sqft": row.get("carpet_area_sqft"),
             "furnishing": row.get("furnishing"),
             "location_label": row.get("micro_market"),
@@ -540,7 +540,7 @@ _BROWSER_ACTION_SIGNALS = re.compile(
     r"\b(?:browser|browser-use|browse|browsing|click|clicked|tap|open(?:\s+(?:the|a))?\s+(?:page|site|website|listing|result)|"
     r"open\s+(?:https?://)?(?:www\.)?[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:/[^\s]*)?|"
     r"check\s+(?:the\s+)?(?:ai\s+provider|provider|settings?)\s+page|"
-    r"maha\s*rera|igr\s+maharashtra|igrs|esearchigr|"
+    r"dubai\s+land\s+department|dubailand|\bdld\b|ejari|trakheesi|mollak|"
     r"(?:construction|project)\s+(?:status|progress)|"
     r"navigate|navigate(?:s|d)?|scroll|type into|fill(?:\s+in)?|select(?:\s+an)?|"
     r"use\s+browser(?:\s+actions?)?|go to|open propai|propai page|website)\b",
@@ -548,8 +548,11 @@ _BROWSER_ACTION_SIGNALS = re.compile(
 )
 
 _BROWSER_SITE_ALIASES = {
-    "maharera": "https://www.maharera.maharashtra.gov.in/",
-    "maha rera": "https://www.maharera.maharashtra.gov.in/",
+    "dld": "https://dubailand.gov.ae/en/",
+    "dubai land department": "https://dubailand.gov.ae/en/",
+    "dubailand": "https://dubailand.gov.ae/en/",
+    "ejari": "https://dubailand.gov.ae/en/",
+    "trakheesi": "https://dubailand.gov.ae/en/",
 }
 
 
@@ -608,9 +611,10 @@ def _has_query_signals(text: str) -> bool:
         "listing", "listings", "properties", "deal", "requirement", "requirements",
         "show", "find", "search", "look", "need", "want",
         "cr", "lakh", "lac", "thousand", "crore",
-        "bandra", "andheri", "juhu", "khar", "powai", "malad", "goregaon",
-        "santacruz", "vile parle", "dadar", "worli", "lower parel", "bkc", "kalina",
-        "lokhandwala", "pali hill", "chembur", "navi mumbai", "thane",
+        "aed", "dhs", "dirham", "cheque",
+        "marina", "jbr", "jvc", "jlt", "business bay", "downtown", "difc",
+        "palm jumeirah", "barsha", "furjan", "springs", "meadows", "greens",
+        "arabian ranches", "dubai hills", "deira", "karama", "mirdif",
         "duplicate", "merge", "alias",
         "how many", "how much", "count ", "list ", "top ",
         "compare", "versus", "vs",
@@ -696,14 +700,12 @@ def _promote_highlights(parsed: dict) -> list[str]:
 def _promote_price(parsed: dict) -> str:
     price = parsed.get("price")
     unit = parsed.get("price_unit")
-    if price and unit == "Cr":
-        return f"\u20b9{(price / 1_00_00_000):.2f} Cr"
-    if price and unit == "L":
-        return f"\u20b9{(price / 1_00_000):.1f} L"
-    if price and unit == "lakh":
-        return f"\u20b9{(price / 1_00_000):.1f} Lakh"
+    if price and unit == "M":
+        return f"AED {(price):,.2f}M"
+    if price and unit == "K":
+        return f"AED {(price):,.0f}K"
     if price:
-        return f"\u20b9{price:,.0f}"
+        return f"AED {price:,.0f}"
     return ""
 
 
@@ -1120,7 +1122,7 @@ async def promote_generate(req: PromoteRequest, user: dict = Depends(require_use
     promo_api_key = req.api_key or ""
     if req.use_ai and ENABLE_AI_PROMO:
         try:
-            system = "You are a Mumbai real estate marketing assistant. Given property details, write a short promotional ad for the specified channel. Keep it under 120 words. Return only the ad body, no preamble."
+            system = "You are a Dubai real estate marketing assistant. Given property details, write a short promotional ad for the specified channel. Keep it under 120 words. Return only the ad body, no preamble."
             price_str = _promote_price(parsed)
             detail_parts = [v for v in [_parsed_display_label(parsed), parsed.get("furnishing"), f"{parsed.get('area_sqft', '')} sqft" if parsed.get('area_sqft') else ""] if v]
             prompt = f"Channel: {req.channel}\nBuilding: {parsed.get('building_name', 'N/A')}\nLocation: {parsed.get('micro_market', parsed.get('location_raw', 'N/A'))}\nDetails: {' | '.join(detail_parts)}\nPrice: {price_str}\nBroker: {parsed.get('broker_name', 'N/A')}"
@@ -1376,8 +1378,8 @@ async def confirm_browser_action(
         # portal can change form labels, require CAPTCHA, or show paid/login
         # gates, and we must surface those states instead of guessing.
         portal_text = last_user.lower()
-        if "maharera" in portal_text or "maha rera" in portal_text:
-            from browser_workflows import run_maharera_project_status
+        if any(term in portal_text for term in ("project status", "construction status", "rera", "permit")) or "dld" in portal_text:
+            from browser_workflows import run_dld_project_status
 
             project_match = re.search(
                 r"(?:status|progress|construction|project)\s+(?:for|of|about)\s+(.+?)(?:\s+(?:on|in)\s+maha\s*rera|$)",
@@ -1409,12 +1411,12 @@ async def confirm_browser_action(
                 )
 
             workflow = await asyncio.to_thread(
-                run_maharera_project_status,
+                run_dld_project_status,
                 _portal_execute,
                 browser_session_id,
                 project_name,
             )
-            activity = workflow.activity(browser_session_id, "maharera_project_status")
+            activity = workflow.activity(browser_session_id, "dld_project_status")
             activity["trace"]["confirmation_token"] = req.confirmation_token
             content = workflow.content
             if workflow.source_url:
@@ -1422,12 +1424,12 @@ async def confirm_browser_action(
             await asyncio.to_thread(storage.add_chat_message, session_id, "assistant", content, tenant_id, [activity])
             return _wrap_chat_response({"content": content, "blocks": [activity], "sources": [workflow.source_url], "trace": activity["trace"]}, True)
 
-        if any(term in portal_text for term in ("igr maharashtra", "igrs", "e-search igr", "esearchigr", "registered document", "index ii")):
-            from browser_workflows import run_igr_property_search
+        if any(term in portal_text for term in ("dld", "dubai land department", "dubailand", "title deed", "ejari", "trakheesi", "transaction search")):
+            from browser_workflows import run_dld_transaction_search
 
             browser_session_id = str(uuid.uuid4())
 
-            def _igr_execute(name: str, args: dict[str, Any]) -> dict[str, Any]:
+            def _dld_execute(name: str, args: dict[str, Any]) -> dict[str, Any]:
                 tool_args = dict(args)
                 tool_args["chat_session_id"] = session_id
                 return execute_tool(
@@ -1441,8 +1443,8 @@ async def confirm_browser_action(
                     browser_provider="agent-browser",
                 )
 
-            workflow = await asyncio.to_thread(run_igr_property_search, _igr_execute, browser_session_id, {})
-            activity = workflow.activity(browser_session_id, "igr_maharashtra_property_search")
+            workflow = await asyncio.to_thread(run_dld_transaction_search, _dld_execute, browser_session_id, {})
+            activity = workflow.activity(browser_session_id, "dld_property_search")
             activity["trace"]["confirmation_token"] = req.confirmation_token
             content = workflow.content + f"\nOfficial source: {workflow.source_url}"
             await asyncio.to_thread(storage.add_chat_message, session_id, "assistant", content, tenant_id, [activity])
@@ -1692,10 +1694,22 @@ async def resolve_broker_contact(
             _logger.debug("Could not load raw contact evidence for listing=%s", listing_id, exc_info=True)
     contact_numbers: list[str] = []
     for candidate in [listing.get("broker_phone")] + re.findall(
-        r"(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{9}(?!\d)", evidence_text
+        r"(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{9}(?!\d)"
+        r"|(?<!\d)(?:\+?971[-\s]?[2-7]\d{7,8}|0?5\d[-\s]?\d{3}[-\s]?\d{4})(?!\d)",
+        evidence_text,
     ):
-        phone_candidate = re.sub(r"\D", "", str(candidate or ""))[-10:]
-        if len(phone_candidate) == 10 and phone_candidate not in contact_numbers:
+        phone_candidate = re.sub(r"\D", "", str(candidate or ""))
+        if len(phone_candidate) == 12 and phone_candidate.startswith("971"):
+            pass
+        elif len(phone_candidate) == 11 and phone_candidate.startswith("0"):
+            # Local UAE format 05XXXXXXXX → E.164 without the trunk zero.
+            phone_candidate = "971" + phone_candidate[1:]
+        elif len(phone_candidate) == 9 and phone_candidate[0] in "234567":
+            # Bare UAE subscriber number → assume the platform market code.
+            phone_candidate = "971" + phone_candidate
+        else:
+            phone_candidate = phone_candidate[-10:]
+        if len(phone_candidate) >= 9 and phone_candidate not in contact_numbers:
             contact_numbers.append(phone_candidate)
     if request and request.list_contacts:
         return {
@@ -1748,7 +1762,8 @@ async def resolve_broker_contact(
     if source:
         recall += f"\n\nOriginal {'requirement' if is_requirement else 'listing'} details:\n{source}"
     message = quote(recall)
-    return {"contact_url": f"https://wa.me/91{phone}?text={message}"}
+    wa_number = f"91{phone}" if len(phone) == 10 else phone
+    return {"contact_url": f"https://wa.me/{wa_number}?text={message}"}
 
 
 @router.post("/api/ai/chat")
@@ -1944,10 +1959,10 @@ async def ai_chat(req: ChatRequest, user: dict = Depends(require_user), tenant_i
                     or save_requirement.get("building_name")
                     or ""
                 ).strip()
-                if explicit_building and re.search(r"\bbkc\b|bandra\s+kurla\s+complex", explicit_building, re.IGNORECASE):
-                    # BKC is a distinct real-estate micro-market even when a
-                    # caller supplies Bandra East as its broader geography.
-                    locality = "BKC"
+                if explicit_building and re.search(r"\bdifc\b|dubai\s+international\s+financial\s+centre", explicit_building, re.IGNORECASE):
+                    # DIFC is a distinct real-estate micro-market even when a
+                    # caller supplies a broader Dubai geography.
+                    locality = "DIFC"
                 listing_locality = locality
                 if locality:
                     candidate = explicit_building
@@ -2288,7 +2303,7 @@ async def ai_chat(req: ChatRequest, user: dict = Depends(require_user), tenant_i
     # search inputs instead of reusing the previous search or depending on an
     # LLM provider just to ask a clarification.
     fresh_rental = bool(last_user and memory.requests_fresh_context(last_user) and re.search(r"\b(rental?|rentals?)\b", last_user, re.IGNORECASE))
-    has_search_filter = bool(re.search(r"\b\d+\s*bhk\b|\b(?:in|near|around)\s+[a-z][a-z\s-]{2,}|(?:₹|rs\.?|\d+\s*(?:lakh|lac|cr|crore|k))", last_user, re.IGNORECASE)) if last_user else False
+    has_search_filter = bool(re.search(r"\b\d+\s*(?:bhk|br)\b|\b(?:in|near|around)\s+[a-z][a-z\s-]{2,}|(?:aed|dhs|rs\.?|\d+\s*(?:k|m|mn|million))", last_user, re.IGNORECASE)) if last_user else False
     if fresh_rental and not has_search_filter:
         clarification = "Sure — starting a fresh rental search. Which area and BHK should I search for? You can also add a monthly budget."
         _persist("assistant", clarification)

@@ -17,16 +17,16 @@ def test_bathroom_count_is_never_a_building_name():
         assert not is_valid_building_candidate(value)
 
 
-def test_exact_source_crore_price_overrides_shifted_model_amount():
+def test_exact_source_million_price_overrides_shifted_model_amount():
     from extraction import _price_from_ai_and_raw
 
     source = """🏡 FOR SALE
-📍 4 Bungalows, Andheri West
+📍 4 Townhouses, Dubai Marina
 ✨ 1 BHK | Fully Furnished with Electronics
-💰 Asking: ₹1.85 Cr
+💰 Asking: AED 18.5M
 """
     amount, unit = _price_from_ai_and_raw(
-        {"amount": 18.5, "unit": "lakh", "raw_price_text": None},
+        {"amount": 185, "unit": "k", "raw_price_text": None},
         source,
     )
 

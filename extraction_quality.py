@@ -11,28 +11,41 @@ import re
 
 
 _PRICE_ONLY_RE = re.compile(
-    r"^\s*(?:₹|rs\.?|inr)?\s*\d+(?:[,.]\d+)?\s*"
-    r"(?:k|thousand|l|lac|lacs|lakh|lakhs|cr|crore|crores)\b"
-    r"(?:\s*(?:/\s*(?:month|monthy|mo)|per\s*month))?\s*"
+    r"^\s*(?:aed|dhs|dirhams?)?\s*\d+(?:[,.]\d+)?\s*"
+    r"(?:k|m|thousand|million|mn)\b"
+    r"(?:\s*(?:/\s*(?:month|mo|year|yr)|per\s*(?:month|mo|year|yr)|"
+    r"yearly|annual|annum))?\s*"
     r"(?:negotiable)?\s*$",
     re.IGNORECASE,
 )
-_CONFIG_ONLY_RE = re.compile(r"^\s*\d+(?:\.\d+)?\s*(?:bhk|rk)\s*$", re.IGNORECASE)
+_CONFIG_ONLY_RE = re.compile(
+    r"^\s*\d+(?:\.\d+)?\s*(?:bhk|br|rk|bedroom)\s*$", re.IGNORECASE
+)
 _NUMBER_ONLY_RE = re.compile(r"^\s*[\d,.]+\s*(?:sq\.?\s*ft|sqft|sft)?\s*$", re.IGNORECASE)
-_PHONE_ONLY_RE = re.compile(r"^\s*(?:\+?91[-\s]?)?[6-9]\d{9}\s*$")
-_PHONE_IN_TEXT_RE = re.compile(r"(?<!\d)(?:\+?91[-\s]?)?[6-9]\d{9}(?!\d)")
+_PHONE_ONLY_RE = re.compile(r"^\s*(?:\+?971[-\s]?)?[2-7]\d{8}\s*$")
+_PHONE_IN_TEXT_RE = re.compile(
+    r"(?<!\d)(?:\+?971[-\s]?[2-7]\d{7,8}|0?5\d[-\s]?\d{3}[-\s]?\d{4}|[2-7]\d{8})(?!\d)"
+)
 _LOCALITY_ONLY_RE = re.compile(
-    r"^\s*(?:near\s+)?(?:bandra|khar|santacruz|andheri|ndheri|juhu|powai|worli|"
-    r"lower\s+parel|pali\s+hill|peddar\s+road|mahim|malabar\s+hill|"
-    r"chembur|thane|mulund|goregaon|malad|vikhroli|ghatkopar|bkc|"
-    r"navi\s+mumbai|matunga|dadar|vile\s+parle)(?:\s+(?:east|west|"
-    r"naka|road|hill|east\s+west))?\s*$",
+    r"^\s*(?:near\s+)?(?:marina|dubai\s+marina|jbr|jvc|jvt|jlt|"
+    r"downtown(?:\s+dubai)?|business\s+bay|bbay|difc|palm(?:\s+jumeirah)?|"
+    r"al\s+barsha|barsha|deira|bur\s+dubai|(?:al\s+)?karama|mirdif|"
+    r"(?:al\s+)?furjan|dubai\s+hills(?:\s+estate)?|springs|meadows|lakes|"
+    r"greens|views|sports\s+city|motor\s+city|arabian\s+ranches|ranches|"
+    r"town\s+square|damac\s+hills|emirates\s+hills|jumeirah|sufouh|suqeim|"
+    r"silicon\s+oasis|dso|festival\s+city|jaddaf|oud\s+metha|qusais|nahda|"
+    r"warqa|khawaneej|mizhar|rashidiya|garhoud|international\s+city|warsan|"
+    r"discovery\s+gardens|jebel\s+ali|jafza|impz|production\s+city|remraam|"
+    r"mudon|arjan|dubailand|meydan|nad\s+al\s+sheba|al\s+barari|bluewaters|"
+    r"city\s+walk|zabeel|za'abeel|szr|sheikh\s+zayed\s+road|al\s+wasl)"
+    r"(?:\s+(?:1|2|3|north|south|east|west))?\s*$",
     re.IGNORECASE,
 )
 
 _LOCALITY_ALIASES = {
-    "ndheri west": "Andheri West",
-    "ndheri east": "Andheri East",
+    "businessbay": "Business Bay",
+    "buisness bay": "Business Bay",
+    "jumeriah": "Jumeirah",
 }
 
 
@@ -139,7 +152,7 @@ def infer_building_from_slice(
     building merely to fill a blank field.
     """
     lines = _candidate_lines(source_text)
-    bhk_re = re.compile(r"\b\d+(?:\.\d+)?\s*(?:bhk|rk)\b", re.IGNORECASE)
+    bhk_re = re.compile(r"\b\d+(?:\.\d+)?\s*(?:bhk|br|rk|bedroom)\b", re.IGNORECASE)
     start = 0
     for index, line in enumerate(lines):
         if bhk_re.search(line) or (bhk is not None and str(bhk).strip() and str(bhk).casefold() in line.casefold()):

@@ -6,14 +6,14 @@ def test_rescues_common_broker_shorthand_when_model_omits_core_fields():
 
     result = _rescue_core_fields(
         parsed,
-        "2BHK Bandra West\nRustomjee Seasons\nCarpet 850 sqft\nPrice 1.25 Cr",
+        "2BHK Dubai Marina\nMarina Sail\nCarpet 850 sqft\nPrice 1.25M",
     )
 
     assert result["bhk"] == "2 BHK"
     assert result["area_sqft"] == 850
-    assert result["price"] == 12_500_000
-    assert result["total_asking_price"] == 12_500_000
-    assert result["building_name"] == "Rustomjee Seasons"
+    assert result["price"] == 1_250_000
+    assert result["total_asking_price"] == 1_250_000
+    assert result["building_name"] == "Marina Sail"
 
 
 def test_media_placeholders_never_become_building_names():

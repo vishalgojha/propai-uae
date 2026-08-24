@@ -48,7 +48,7 @@ def validate_source_semantics(extraction: dict, source_text: str) -> dict:
 
     A provider's ``per_sqft`` value is accepted only when the source contains
     an explicit PSF marker. This preserves legitimate rate × area calculations
-    while preventing ordinary lakh/crore rents from becoming PSF rates.
+    while preventing ordinary K/M rents from becoming PSF rates.
     """
     try:
         discriminators = ExtractionDiscriminators.model_validate({

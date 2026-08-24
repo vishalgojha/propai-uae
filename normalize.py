@@ -35,8 +35,9 @@ _MONO_RE = re.compile(r'`([^`\n]{1,200}?)`')
 
 # ── Noise patterns ────────────────────────────────────────────────
 _PHONE_RE = re.compile(
-    r'(?:\+?91[\s\-]?)?'
-    r'(?:[6-9]\d{9}|'
+    r'(?:\+?(?:971|91)[\s\-]?)?'
+    r'(?:[5]\d{8}|'
+    r'[6-9]\d{9}|'
     r'\d{3}[\s\-]?\d{3}[\s\-]?\d{4}|'
     r'\(\d{3}\)\s*\d{3}[\s\-]?\d{4})'
 )
@@ -50,8 +51,7 @@ _SIGNATURE_PATTERNS = [
     r'(?i)^\s*(?:forwarded|fwd)[\s:]*',
     r'(?i)^\s*(?:disclaimer|confidential|privileged)[\s:].*$',
     r'(?i)^\s*(?:broker|agent|dealer|consultant)[\s:]*\w+.*$',
-    r'(?i)^\s*(?:RERA|rera)[\s:]*\w+.*$',
-    r'(?i)^\s*(?:MahaRERA|maharera)[\s:]*\w+.*$',
+    r'(?i)^\s*(?:RERA|rera|DLD|dld|BRN|brn)[\s:]*\w+.*$',
 ]
 
 # Common real estate abbreviations
@@ -120,12 +120,11 @@ _ABBREVIATIONS = {
     r'\bSQ\s*M\b': 'sq m',
 }
 
-# Price unit normalization
+# Price unit normalization (UAE: K = thousand, M = million; no lakh/crore).
+# Bare ``m`` is guarded so area strings such as ``1,200 sq m`` are untouched.
 _PRICE_UNITS = {
-    r'(?i)\b(?:lac|lakh|lacs?|lakhs?)\b': 'L',
-    r'(?i)\b(?:cr|crore|crores?)\b': 'Cr',
     r'(?i)\b(?:k|thousand)\b': 'K',
-    r'(?i)\b(?:mn|million)\b': 'Mn',
+    r'(?i)(?<!\bsq\s)\b(?:m|mil|million|mn)\b': 'M',
 }
 
 # Common noise words to remove
@@ -240,11 +239,17 @@ def extract_phones(text: str) -> list[str]:
     for m in matches:
         if isinstance(m, tuple):
             m = ''.join(m)
-        # Normalize to 10-digit
+        # Normalize to local UAE (9-digit mobile) or legacy 10-digit form
         digits = re.sub(r'\D', '', m)
+        if len(digits) == 12 and digits.startswith('971'):
+            digits = digits[3:]
         if len(digits) == 12 and digits.startswith('91'):
             digits = digits[2:]
-        if len(digits) == 10 and digits[0] in '6789':
+        if len(digits) == 10 and digits[0] == '0':
+            digits = digits[1:]
+        if len(digits) == 9 and digits[0] == '5':
+            normalized.append(digits)
+        elif len(digits) == 10 and digits[0] in '6789':
             normalized.append(digits)
     return list(set(normalized))
 

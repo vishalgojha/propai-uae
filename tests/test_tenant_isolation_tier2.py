@@ -17,17 +17,27 @@ def test_ai_chat_endpoints_forward_tenant(monkeypatch):
     calls = []
 
     class FakeStorage:
-        def list_chat_sessions(self, broker_phone, limit=50, tenant_id=None):
-            calls.append(("list", broker_phone, limit, tenant_id))
+        def get_user_organizations(self, user_id):
+            return [{"id": "org-A"}]
+
+        def get_user_profile(self, phone="", auth_user_id="", tenant_id=None):
+            calls.append(("profile", auth_user_id, tenant_id))
+            return {"phone": "919999999999"}
+
+        def adopt_chat_session_owners(self, aliases, owner_key, tenant_id=None):
+            calls.append(("adopt", owner_key, tenant_id))
+
+        def list_chat_sessions(self, owner_key, limit=50, tenant_id=None):
+            calls.append(("list", owner_key, limit, tenant_id))
             return []
 
-        def create_chat_session(self, broker_phone, title="New chat", tenant_id=None):
-            calls.append(("create", broker_phone, title, tenant_id))
-            return {"id": "s1"}
+        def create_chat_session(self, owner_key, title="New chat", source="parsed", tenant_id=None):
+            calls.append(("create", owner_key, title, source, tenant_id))
+            return {"id": "s2", "broker_phone": owner_key}
 
         def get_chat_session(self, session_id, tenant_id=None):
             calls.append(("get", session_id, tenant_id))
-            return {"id": session_id}
+            return {"id": session_id, "broker_phone": "user:u1"}
 
         def get_ai_chat_messages(self, session_id, limit=200, tenant_id=None):
             calls.append(("messages", session_id, limit, tenant_id))
@@ -36,25 +46,24 @@ def test_ai_chat_endpoints_forward_tenant(monkeypatch):
         def delete_chat_session(self, session_id, tenant_id=None):
             calls.append(("delete", session_id, tenant_id))
 
-    monkeypatch.setattr(_common, "storage", FakeStorage())
-    monkeypatch.setattr(ai_chat, "storage", FakeStorage())
-    monkeypatch.setattr(
-        ai_chat.chat_engine,
-        "get_conversational_reply",
-        lambda *args, **kwargs: type("Reply", (), {"content": "Hello"})(),
-    )
+    fake = FakeStorage()
+    monkeypatch.setattr(_common, "storage", fake)
+    monkeypatch.setattr(ai_chat, "storage", fake)
 
-    asyncio.run(ai_chat.list_chat_sessions(broker_phone="919999999999", tenant_id="org-A"))
-    asyncio.run(ai_chat.create_chat_session(broker_phone="919999999999", title="t", tenant_id="org-A"))
-    asyncio.run(ai_chat.get_chat_session_messages(session_id="s1", tenant_id="org-A"))
-    asyncio.run(ai_chat.delete_chat_session(session_id="s1", tenant_id="org-A"))
+    user = {"id": "u1", "phone": "919999999999"}
+    asyncio.run(ai_chat.list_chat_sessions(user=user, tenant_id="org-A"))
+    asyncio.run(ai_chat.create_chat_session(title="t", user=user, tenant_id="org-A"))
+    asyncio.run(ai_chat.get_chat_session_messages(session_id="s1", user=user, tenant_id="org-A"))
+    asyncio.run(ai_chat.delete_chat_session(session_id="s1", user=user, tenant_id="org-A"))
 
-    assert ("list", "919999999999", 50, "org-A") in calls
-    assert ("create", "919999999999", "t", "org-A") in calls
+    # Sessions are owned by the authenticated user key, not a raw phone.
+    assert ("list", "user:u1", 50, "org-A") in calls
+    assert ("create", "user:u1", "t", "parsed", "org-A") in calls
     assert ("get", "s1", "org-A") in calls
     assert ("messages", "s1", 200, "org-A") in calls
     assert ("delete", "s1", "org-A") in calls
-    assert all(c[-1] == "org-A" for c in calls)
+    tenant_forwarding = [c for c in calls if c[0] in {"list", "create", "get", "messages", "delete"}]
+    assert all(c[-1] == "org-A" for c in tenant_forwarding)
 
 
 def test_ai_chat_persist_uses_tenant(monkeypatch):
@@ -63,26 +72,30 @@ def test_ai_chat_persist_uses_tenant(monkeypatch):
 
     calls = []
 
-    class FakeStorage:
-        def add_chat_message(self, session_id, role, content, tenant_id=None):
-            calls.append(("add", session_id, role, content, tenant_id))
+    class RecordingStorage:
+        """Satisfy the whole chat flow while recording tenant kwargs."""
 
-        def touch_chat_session(self, session_id, tenant_id=None):
-            calls.append(("touch", session_id, tenant_id))
+        def __getattr__(self, name):
+            def _record(*args, **kwargs):
+                calls.append((name, args, kwargs))
+                if name == "get_user_organizations":
+                    return [{"id": "org-A"}]
+                if name == "get_user_profile":
+                    return {"phone": "919999999999"}
+                if name == "get_chat_session":
+                    session_id = args[0] if args else kwargs.get("session_id")
+                    return {"id": session_id, "broker_phone": "user:u"}
+                if name in {"get_ai_chat_messages", "list_chat_sessions"}:
+                    return []
+                if name == "get_workspace_ai_settings":
+                    return {}
+                return None
 
-        def get_ai_chat_messages(self, session_id, limit=200, tenant_id=None):
-            calls.append(("messages", session_id, limit, tenant_id))
-            return []
+            return _record
 
-        def update_chat_session_title(self, session_id, title, tenant_id=None):
-            calls.append(("title", session_id, title, tenant_id))
-
-        def get_user_profile(self, phone="", auth_user_id="", tenant_id=None):
-            calls.append(("profile", phone, auth_user_id, tenant_id))
-            return None
-
-    monkeypatch.setattr(_common, "storage", FakeStorage())
-    monkeypatch.setattr(ai_chat, "storage", FakeStorage())
+    fake = RecordingStorage()
+    monkeypatch.setattr(_common, "storage", fake)
+    monkeypatch.setattr(ai_chat, "storage", fake)
     monkeypatch.setattr(
         ai_chat.chat_engine,
         "get_conversational_reply",
@@ -94,14 +107,34 @@ def test_ai_chat_persist_uses_tenant(monkeypatch):
         broker_phone = "919999999999"
         model = ""
         api_key = None
+        source = "chat"
+        persist_user_turn = True
         messages = [{"role": "user", "content": "hi"}]
 
     asyncio.run(ai_chat.ai_chat(FakeReq(), user={"id": "u"}, tenant_id="org-A"))
 
-    assert ("add", "s1", "user", "hi", "org-A") in calls
-    assert ("touch", "s1", "org-A") in calls
-    assert ("messages", "s1", 3, "org-A") in calls
-    assert ("profile", "919999999999", "", "org-A") in calls
+    def forwarded(name):
+        return [
+            entry for entry in calls
+            if entry[0] == name and _tenant_of(entry) == "org-A"
+        ]
+
+    def _tenant_of(entry):
+        _, args, kwargs = entry
+        if kwargs.get("tenant_id") is not None:
+            return kwargs["tenant_id"]
+        for value in args:
+            if value == "org-A":
+                return value
+        return None
+
+    assert forwarded("add_chat_message_if_new"), "user turn not persisted under tenant"
+    assert forwarded("touch_chat_session"), "session not touched under tenant"
+    assert forwarded("update_chat_session_title"), "title not updated under tenant"
+    assert any(
+        entry[0] == "get_ai_chat_messages" and (entry[2].get("limit") == 3)
+        for entry in forwarded("get_ai_chat_messages")
+    ), "title probe did not run under tenant"
 
 
 def test_profile_endpoints_forward_tenant(monkeypatch):
@@ -391,8 +424,11 @@ def test_storage_scopes_chat_tables_by_tenant():
         s.get_user_profile("919999999999", tenant_id="org-A")
         s.save_user_profile("919999999999", {}, auth_user_id="u", tenant_id="org-A")
 
+        # user_profiles is intentionally NOT tenant-scoped: profiles are
+        # identity-owned across workspaces (see the cross-workspace fallback
+        # and save tests below), so only phone/auth filters apply there.
         scoped = ("ai_chat_sessions", "ai_chat_messages",
-                  "llm_providers", "saved_inbox_views", "user_profiles")
+                  "llm_providers", "saved_inbox_views")
         assert execs, "no read/delete queries ran"
         for table, filters in execs:
             if table in scoped:

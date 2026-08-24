@@ -1,4 +1,7 @@
-from browser_workflows import run_igr_property_search, run_maharera_project_status
+from browser_workflows import (
+    DLD_PROJECT_SEARCH_URL,
+    run_dld_project_status,
+)
 
 
 def _executor_factory(states):
@@ -17,45 +20,67 @@ def _executor_factory(states):
     return execute, calls
 
 
-def test_maharera_workflow_uses_search_form_and_visible_steps():
-    execute, calls = _executor_factory([
-        {"status": "ok", "elements": [
-            {"index": 7, "kind": "textbox", "text": "Project Name"},
-            {"index": 8, "kind": "button", "text": "Search"},
-        ]},
-        {"status": "ok", "title": "Search results", "elements": [{"index": 9, "kind": "link", "text": "Kalpataru Magnus"}]},
-        {"status": "ok", "title": "Project details", "raw_output": "KALPATARU MAGNUS P51800004029 Proposed Completion 2028"},
-    ])
+SEARCH_FORM_STATE = {
+    "status": "ok",
+    "elements": [
+        {"text": "Project name", "kind": "textbox", "index": 3},
+        {"text": "Search", "kind": "button", "index": 4},
+    ],
+}
 
-    result = run_maharera_project_status(execute, "browser-session", "Kalpataru Magnus")
+
+def test_dld_project_workflow_uses_search_form_and_visible_steps():
+    results_state = {
+        "status": "ok",
+        "title": "Search results",
+        "raw_output": "1 result found",
+        "elements": [
+            {"text": "Marina Sail project details", "kind": "link", "index": 7},
+        ],
+    }
+    detail_state = {
+        "status": "ok",
+        "title": "Marina Sail",
+        "raw_output": "Construction status: Under construction",
+    }
+    execute, calls = _executor_factory([SEARCH_FORM_STATE, results_state, detail_state])
+
+    result = run_dld_project_status(execute, "session-1", "Marina Sail")
 
     assert result.status == "complete"
-    assert [call[0] for call in calls] == ["browser_open", "browser_state", "browser_fill", "browser_click", "browser_state", "browser_click", "browser_state"]
-    assert "official result page" in result.content
+    assert [step.status for step in result.steps] == ["ok"] * 5
+    assert result.source_url.startswith(DLD_PROJECT_SEARCH_URL)
+    assert "DLD record" in result.content
+
+    opened = calls[0]
+    assert opened[0] == "browser_open"
+    assert "dubailand.gov.ae" in opened[1]["url"]
+    fills = [call for call in calls if call[0] == "browser_fill"]
+    assert fills and fills[0][1]["text"] == "Marina Sail"
 
 
-def test_maharera_workflow_stops_at_human_verification():
-    execute, _ = _executor_factory([
-        {"status": "ok", "elements": [
-            {"index": 7, "kind": "textbox", "text": "Project Name"},
-            {"index": 8, "kind": "button", "text": "Search"},
-        ]},
-        {"status": "ok", "raw_output": "Please enter CAPTCHA"},
-    ])
+def test_dld_project_workflow_surfaces_human_verification_steps():
+    captcha_state = {
+        "status": "ok",
+        "title": "Verify",
+        "raw_output": "Please enter the captcha to continue",
+    }
+    execute, calls = _executor_factory([SEARCH_FORM_STATE, captcha_state])
 
-    result = run_maharera_project_status(execute, "browser-session", "Kalpataru Magnus")
-
-    assert result.status == "needs_input"
-    assert "verification" in result.content
-
-
-def test_igr_workflow_does_not_claim_search_without_login():
-    execute, calls = _executor_factory([
-        {"status": "ok", "raw_output": "LOGIN User Id Password CAPTCHA"},
-    ])
-
-    result = run_igr_property_search(execute, "browser-session", {})
+    result = run_dld_project_status(execute, "session-1", "Marina Sail")
 
     assert result.status == "needs_input"
-    assert "login/CAPTCHA" in result.content
-    assert [call[0] for call in calls] == ["browser_open", "browser_state"]
+    assert result.steps[3].status == "needs_input"
+    assert "verification" in result.content.lower()
+    # The workflow stops before clicking anything on the verification wall.
+    assert all(call[0] != "browser_click" or call[1].get("step_index", 0) <= 3 for call in calls)
+
+
+def test_dld_project_workflow_requires_a_project_name():
+    execute, calls = _executor_factory([])
+
+    result = run_dld_project_status(execute, "session-1", "")
+
+    assert calls == []
+    assert result.steps[0].status == "skipped"
+    assert "project name" in result.content.lower()

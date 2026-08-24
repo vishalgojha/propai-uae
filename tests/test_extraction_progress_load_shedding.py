@@ -85,7 +85,7 @@ def test_progress_endpoint_coalesces_concurrent_workspace_requests(monkeypatch):
     calls = 0
 
     class Storage:
-        def get_extraction_progress(self, _hours, _tenant_id):
+        def get_workspace_extraction_progress(self, rate_window_hours=24, tenant_id=None):
             nonlocal calls
             calls += 1
             return {
@@ -93,7 +93,7 @@ def test_progress_endpoint_coalesces_concurrent_workspace_requests(monkeypatch):
                 "processed": 7,
                 "unprocessed": 3,
                 "processed_recent": 2,
-                "extraction_cache_rows": 5,
+                "suppressed": 0,
             }
 
     monkeypatch.setattr(dashboard, "storage", Storage())

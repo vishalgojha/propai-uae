@@ -5,10 +5,11 @@ from __future__ import annotations
 import re
 
 
-# Mumbai real-estate abbreviations which must survive title-casing.
+# Dubai real-estate abbreviations which must survive title-casing.
+# Dubai real-estate abbreviations which must survive title-casing.
 BUILDING_ACRONYMS = frozenset({
-    "AP", "AR", "CHS", "DGS", "DLH", "HDIL", "INS", "LIC", "NG",
-    "RNA", "VIP",
+    "BR", "DIFC", "DIP", "DSO", "DXB", "DWC", "JAFZA", "JBR", "JLT",
+    "JVC", "JVT", "LLC", "MJL", "MOE", "SZR",
 })
 
 _DISPLAY_OVERRIDES = {"HANDM": "HandM"}
@@ -18,7 +19,9 @@ _JUNK_PHRASES = frozenset({
     "untouch flat", "old bldg", "old building", "regards", "thank you",
 })
 _JUNK_RE = re.compile(r"\b(?:pl+z|pl+ease|pls?)\b.*\bcall\b", re.I)
-_PHONE_IN_TEXT_RE = re.compile(r"(?<!\d)(?:\+?91[-\s]?)?[6-9]\d{9}(?!\d)")
+_PHONE_IN_TEXT_RE = re.compile(
+    r"(?<!\d)(?:\+?971[-\s]?[2-7]\d{7,8}|0?5\d[-\s]?\d{3}[-\s]?\d{4})(?!\d)"
+)
 _BROKER_NOTE_RE = re.compile(
     r"\b(?:client\s+(?:business\s+)?profile|allow\s+\d+\s*hrs?|"
     r"set\s+up\s+visits?|for\s+(?:further|more)\s+details)\b",

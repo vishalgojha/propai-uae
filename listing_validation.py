@@ -27,47 +27,48 @@ logger = logging.getLogger(__name__)
 
 # ── Price plausibility ranges ────────────────────────────────────────
 # Keyed by (property_category, transaction_type).
-# Each value is (min_abs, max_abs) in INR.  These are generous Mumbai-market
+# Each value is (min_abs, max_abs) in AED.  These are generous Dubai-market
 # bounds — intentionally wide to catch only clearly wrong extractions.
-# "abs" means absolute rupees (not lakh/crore).
+# Rents are ANNUAL totals (Dubai convention: yearly rent quoted up front,
+# paid via post-dated cheques).  "abs" means absolute dirhams (not K/M).
 
 _PRICE_RANGES: dict[tuple[str, str], tuple[float, float]] = {
     # ── Residential ──
-    # Rent (monthly)
-    ("APARTMENT", "rent"):   (3_000, 15_00_000),      # ₹3K – ₹15L/month
-    ("VILLA", "rent"):       (10_000, 50_00_000),     # ₹10K – ₹50L/month
-    ("PENTHOUSE", "rent"):   (25_000, 80_00_000),     # ₹25K – ₹80L/month
-    ("STUDIO", "rent"):      (5_000, 80_000),          # ₹5K – ₹80K/month
-    ("ROW_HOUSE", "rent"):   (10_000, 40_00_000),     # ₹10K – ₹40L/month
-    ("PLOT", "rent"):        (1_000, 5_00_000),        # ₹1K – ₹5L/month
-    ("FARMHOUSE", "rent"):   (5_000, 25_00_000),      # ₹5K – ₹25L/month
-    ("DUPLEX", "rent"):      (20_000, 60_00_000),     # ₹20K – ₹60L/month
-    ("SOHO", "rent"):        (8_000, 20_00_000),      # ₹8K – ₹20L/month
+    # Rent (annual)
+    ("APARTMENT", "rent"):   (12_000, 3_500_000),      # AED 12K – 3.5M/yr
+    ("VILLA", "rent"):       (30_000, 5_000_000),      # AED 30K – 5M/yr
+    ("PENTHOUSE", "rent"):   (60_000, 8_000_000),      # AED 60K – 8M/yr
+    ("STUDIO", "rent"):      (15_000, 250_000),         # AED 15K – 250K/yr
+    ("ROW_HOUSE", "rent"):   (30_000, 2_500_000),      # townhouse
+    ("PLOT", "rent"):        (10_000, 1_000_000),
+    ("FARMHOUSE", "rent"):   (30_000, 2_000_000),
+    ("DUPLEX", "rent"):      (40_000, 3_000_000),
+    ("SOHO", "rent"):        (25_000, 1_500_000),
 
     # Sale (total)
-    ("APARTMENT", "sale"):   (5_00_000, 200_00_00_000),  # ₹5L – ₹200Cr
-    ("VILLA", "sale"):       (30_00_000, 500_00_000), # ₹30L – ₹500Cr
-    ("PENTHOUSE", "sale"):   (1_00_00_000, 800_00_000), # ₹1Cr – ₹800Cr
-    ("STUDIO", "sale"):      (15_00_000, 50_00_000),  # ₹15L – ₹50Cr
-    ("ROW_HOUSE", "sale"):   (20_00_000, 100_00_000), # ₹20L – ₹100Cr
-    ("PLOT", "sale"):        (10_00_000, 200_00_000), # ₹10L – ₹200Cr
-    ("FARMHOUSE", "sale"):   (25_00_000, 150_00_000), # ₹25L – ₹150Cr
-    ("DUPLEX", "sale"):      (50_00_000, 400_00_000), # ₹50L – ₹400Cr
-    ("SOHO", "sale"):        (2_00_00_000, 100_00_00_000),  # ₹2Cr – ₹100Cr
+    ("APARTMENT", "sale"):   (250_000, 200_000_000),   # AED 250K – 200M
+    ("VILLA", "sale"):       (800_000, 300_000_000),   # AED 800K – 300M
+    ("PENTHOUSE", "sale"):   (1_500_000, 250_000_000),
+    ("STUDIO", "sale"):      (150_000, 20_000_000),
+    ("ROW_HOUSE", "sale"):   (600_000, 50_000_000),
+    ("PLOT", "sale"):        (300_000, 100_000_000),
+    ("FARMHOUSE", "sale"):   (500_000, 80_000_000),
+    ("DUPLEX", "sale"):      (700_000, 60_000_000),
+    ("SOHO", "sale"):        (400_000, 30_000_000),
 
     # ── Commercial ──
-    ("OFFICE_SPACE", "rent"):  (8_000, 80_00_000),     # ₹8K – ₹80L/month
-    ("OFFICE_SPACE", "sale"):  (20_00_000, 500_00_000), # ₹20L – ₹500Cr
-    ("SHOP", "rent"):          (5_000, 40_00_000),     # ₹5K – ₹40L/month
-    ("SHOP", "sale"):          (10_00_000, 200_00_000), # ₹10L – ₹200Cr
-    ("SHOWROOM", "rent"):      (15_000, 1_00_00_000),  # ₹15K – ₹1Cr/month
-    ("SHOWROOM", "sale"):      (50_00_000, 500_00_000), # ₹50L – ₹500Cr
-    ("WAREHOUSE", "rent"):     (3_000, 20_00_000),     # ₹3K – ₹20L/month
-    ("WAREHOUSE", "sale"):     (10_00_000, 100_00_000), # ₹10L – ₹100Cr
-    ("CO_WORKING", "rent"):    (5_000, 50_00_000),     # ₹5K – ₹50L/month
-    ("CO_WORKING", "sale"):    (1_00_00_000, 50_00_00_000), # ₹1Cr – ₹50Cr
-    ("INDUSTRIAL", "rent"):    (2_000, 30_00_000),     # ₹2K – ₹30L/month
-    ("INDUSTRIAL", "sale"):    (10_00_000, 150_00_000), # ₹10L – ₹150Cr
+    ("OFFICE_SPACE", "rent"):  (20_000, 12_000_000),   # annual
+    ("OFFICE_SPACE", "sale"):  (300_000, 150_000_000),
+    ("SHOP", "rent"):          (30_000, 8_000_000),
+    ("SHOP", "sale"):          (250_000, 60_000_000),
+    ("SHOWROOM", "rent"):      (50_000, 15_000_000),
+    ("SHOWROOM", "sale"):      (500_000, 150_000_000),
+    ("WAREHOUSE", "rent"):     (30_000, 3_000_000),
+    ("WAREHOUSE", "sale"):     (400_000, 80_000_000),
+    ("CO_WORKING", "rent"):    (12_000, 2_000_000),
+    ("CO_WORKING", "sale"):    (500_000, 50_000_000),
+    ("INDUSTRIAL", "rent"):    (30_000, 4_000_000),
+    ("INDUSTRIAL", "sale"):    (300_000, 60_000_000),
 }
 
 _COMMERCIAL_CATEGORY_ALIASES = {
@@ -83,11 +84,11 @@ _COMMERCIAL_CATEGORY_ALIASES = {
 }
 
 # Catch-all for unknown property types — very wide to avoid false rejections.
-_DEFAULT_RANGE = (1_000, 500_00_00_00)  # ₹1K – ₹500Cr
+_DEFAULT_RANGE = (5_000, 500_000_000)  # AED 5K – AED 500M
 
 # ── Valid enums ──────────────────────────────────────────────────────
 _VALID_INTENTS = {"SELL", "RENT", "BUY", "REQUIREMENT", "NO_ANCHOR", "DEMAND"}
-_VALID_PRICE_UNITS = {"abs", "Cr", "Lac", "K", None}
+_VALID_PRICE_UNITS = {"abs", "M", "K", None}
 _VALID_FURNISHINGS = {
     None, "", "unfurnished", "semi_furnished", "fully_furnished",
     "bare_shell", "builder_finish", "not_specified", "none",
@@ -105,7 +106,7 @@ _VALID_PROPERTY_CATEGORIES = {
 }
 
 # ── BHK sanity ──────────────────────────────────────────────────────
-_BHK_PATTERN = re.compile(r"^(\d+(?:\.\d+)?)\s*(?:BHK|RK)$")
+_BHK_PATTERN = re.compile(r"^(\d+(?:\.\d+)?)\s*(?:BHK|BR|RK)$")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -138,15 +139,13 @@ class ValidationResult:
 
 
 def _abs_price(price: float | None, price_unit: str | None) -> float | None:
-    """Normalise price to absolute INR for range checking."""
+    """Normalise price to absolute AED for range checking."""
     if price is None:
         return None
     unit = (price_unit or "").strip().lower()
-    if unit in ("cr", "crore"):
-        return price * 1_00_00_000
-    if unit in ("lac", "lakh", "l"):
-        return price * 1_00_000
-    if unit in ("k", "thousand"):
+    if unit == "m":
+        return price * 1_000_000
+    if unit == "k":
         return price * 1_000
     return price  # abs or unknown unit
 
@@ -192,11 +191,11 @@ def validate_listing(parsed: dict[str, Any]) -> ValidationResult:
 
         range_key = (property_cat, txn)
         # Generic commercial inventory still needs a real estate-scale price.
-        # Falling back to the generic ₹1K lower bound allowed values such as
-        # ₹1,500 to appear as active commercial sale listings.
+        # Falling back to the generic AED 5K lower bound allowed values such as
+        # AED 1,500 to appear as active commercial sale listings.
         lo, hi = _PRICE_RANGES.get(
             range_key,
-            (10_00_000, 500_00_00_000) if property_cat == "COMMERCIAL" and txn == "sale" else _DEFAULT_RANGE,
+            (250_000, 500_000_000) if property_cat == "COMMERCIAL" and txn == "sale" else _DEFAULT_RANGE,
         )
 
         if abs_price < lo:
@@ -216,9 +215,9 @@ def validate_listing(parsed: dict[str, Any]) -> ValidationResult:
         try:
             area_value = float(area) if area is not None else None
             rate = abs_price / area_value if area_value and area_value > 0 and txn == "sale" else None
-            # A total sale price below ₹500/sq ft for a large land/plot-like
+            # A total sale price below AED 250/sq ft for a large land/plot-like
             # record is an extraction outlier, not a publishable market fact.
-            if rate is not None and area_value >= 1_000 and rate < 500:
+            if rate is not None and area_value >= 1_000 and rate < 250:
                 result.flag("price_per_sqft_implausibly_low")
                 result.set_price_override(None)
         except (TypeError, ValueError, ZeroDivisionError):
@@ -238,7 +237,7 @@ def validate_listing(parsed: dict[str, Any]) -> ValidationResult:
             result.flag("bhk_zero_not_rk")
     elif bhk and bhk.strip():
         # Non-standard BHK string — check it's at least plausible
-        if not re.match(r"^\d+(?:\.\d+)?\s*(?:BHK|RK|bhk|rk|Bedroom|bedroom)", bhk.strip()):
+        if not re.match(r"^\d+(?:\.\d+)?\s*(?:BHK|BR|RK|bhk|br|rk|Bedroom|bedroom)", bhk.strip()):
             result.flag(f"bhk_format_unusual:{bhk}")
 
     # ── Area sanity ──────────────────────────────────────────────────
@@ -302,20 +301,21 @@ def validate_listing(parsed: dict[str, Any]) -> ValidationResult:
         try:
             deposit_val = float(deposit)
             if deposit_val > 0:
-                # Deposit > 24x monthly rent is suspicious (10x is common max)
-                if intent == "RENT" and deposit_val > abs_price * 24:
-                    result.flag(f"deposit_exceeds_24x_rent:{deposit_val}")
+                # UAE security deposits are typically ~5% of annual rent;
+                # more than half a year's rent is suspicious.
+                if intent == "RENT" and deposit_val > abs_price * 0.5:
+                    result.flag(f"deposit_exceeds_half_annual_rent:{deposit_val}")
         except (TypeError, ValueError):
             pass
 
     # ── Cross-field consistency ──────────────────────────────────────
-    # "RENT" intent + sale-like price is suspicious
-    if intent == "RENT" and abs_price is not None and abs_price > 5_00_00_000:
-        result.flag("rent_price_over_5cr")
+    # "RENT" intent + sale-like price is suspicious (> AED 5M/yr)
+    if intent == "RENT" and abs_price is not None and abs_price > 5_000_000:
+        result.flag("rent_price_over_5m_annual")
         result.set_price_override(None)
-    # "SELL" intent + very low price (< ₹5L) is suspicious
-    if intent == "SELL" and abs_price is not None and abs_price < 5_00_000:
-        result.flag("sale_price_under_5l")
+    # "SELL" intent + very low price (< AED 100K) is suspicious
+    if intent == "SELL" and abs_price is not None and abs_price < 100_000:
+        result.flag("sale_price_under_100k")
         result.set_price_override(None)
 
     return result

@@ -1,24 +1,26 @@
-// Canonical locality mapping for www.propai.live.
+// Canonical locality mapping for www.propai.live (UAE / Dubai).
 //
-// Purpose: normalise the dirty `micro_market` strings that accumulated in the
-// DB before any normaliser existed. The www read path resolves every raw value
-// through this module so duplicates merge, non-places hide, and implied
-// directions map to a confirmed canonical label — without needing a backfill
-// first. The backfill script (scripts/backfill_canonical_localities.py) applies
-// the same rules to the stored rows.
+// Purpose: normalise the dirty `micro_market` strings that accumulate during
+// ingestion. The www read path resolves every raw value through this module so
+// duplicates merge, non-places hide, and implied short forms map to a
+// confirmed canonical label — without needing a backfill first. The backfill
+// script (scripts/backfill_canonical_localities.py) applies the same rules to
+// the stored rows.
 //
-// Rules are confirmed against WhatsApp group data (no guesswork):
+// Rules:
 //  - Always trim + case-fold for comparison.
-//  - Implied-direction applies to ONLY these three bare parents:
-//      "Bandra"        -> Bandra West
-//      "Khar"          -> Khar West
-//      "Santacruz"/"Scuz" -> Santacruz West
-//  - BKC handling:
-//      "Bandra BKC" / "Bandra Bkc" / "Bandra East BKC" -> Bandra East
-//      "BKC" (bare, no Bandra prefix)                  -> Bandra Kurla Complex
-//  - These generic parents stay as their own bucket, with NO automatic
-//    East/West assumption and NO standalone public page (general search only):
-//      Andheri, Dadar, Thane, Malad, Goregaon, Vile Parle, Kandivali, Borivali
+//  - Implied expansion applies ONLY to these unambiguous bare parents:
+//      "Marina"   -> Dubai Marina
+//      "Downtown" -> Downtown Dubai
+//      "Barsha"   -> Al Barsha
+//      "Furjan"   -> Al Furjan
+//      "Ranches"  -> Arabian Ranches
+//      "Springs"  -> The Springs
+//      "Meadows"  -> The Meadows
+//      "Greens"   -> The Greens
+//  - Acronym handling: JBR/JVC/JVT/JLT/DIFC map to their expanded labels.
+//  - "Dubai" (bare) stays its own bucket, public via general search but with
+//    NO standalone page.
 //  - Standalone public pages are opt-in. Raw micro_market values are ingestion
 //    data, not an editorial locality taxonomy, so an unknown value must never
 //    automatically create a public location page.
@@ -26,173 +28,179 @@
 import { slugify } from "./supabase";
 
 export type CanonicalLocality = {
-  /** Display label, e.g. "Bandra West". */
+  /** Display label, e.g. "Dubai Marina". */
   label: string;
-  /** URL slug, e.g. "bandra-west". */
+  /** URL slug, e.g. "dubai-marina". */
   slug: string;
   /** True if this locality should appear anywhere on public pages. */
   public: boolean;
   /** True if this locality gets its own /localities/[slug] detail page.
-   *  Generic parents (Andheri, Dadar, ...) are false — surfaced only via
-   *  general search to avoid Bandra-BKC-style ambiguity confusion. */
+   *  The bare parent "Dubai" is false — surfaced only via general search. */
   standalonePage: boolean;
 };
 
 // Non-place internal buckets → hidden from all public surfaces.
 const HIDDEN_BUCKETS = new Set<string>([
-  "western suburbs prime",
-  "western suburbs mid",
-  "western suburbs extended",
-  "western suburbs far",
-  "south mumbai central",
-  "south mumbai prime",
-  "eastern suburbs",
-  "eastern suburbs prime",
-  "eastern suburbs extended",
-  "central suburbs",
-  "mumbai suburbs",
-  "western line",
-  "central line",
-  "harbour line",
+  "unknown",
+  "not specified",
+  "not available",
+  "n/a",
+  "na",
+  "none",
+  "null",
+  "nil",
+  "listing",
+  "requirement",
+  "property",
+  "text",
 ]);
 
 // Generic parents that keep their own bucket but get NO standalone page.
 const GENERIC_PARENTS = new Set<string>([
-  "andheri",
-  "dadar",
-  "thane",
-  "malad",
-  "goregaon",
-  "vile parle",
-  "kandivali",
-  "borivali",
+  "dubai",
+  "uae",
 ]);
 
-// Implied-direction map (bare parent -> confirmed canonical label).
+// Implied-expansion map (bare parent -> confirmed canonical label).
 const IMPLIED_DIRECTION: Record<string, string> = {
-  bandra: "Bandra West",
-  khar: "Khar West",
-  santacruz: "Santacruz West",
-  scuz: "Santacruz West",
+  marina: "Dubai Marina",
+  downtown: "Downtown Dubai",
+  barsha: "Al Barsha",
+  furjan: "Al Furjan",
+  ranches: "Arabian Ranches",
+  springs: "The Springs",
+  meadows: "The Meadows",
+  greens: "The Greens",
 };
 
 // Explicit redirects (case-folded raw -> canonical label).
 const REDIRECTS: Record<string, string> = {
-  "bandra bkc": "Bandra East",
-  "bandra bkc east": "Bandra East",
-  "bandra east bkc": "Bandra East",
-  bkc: "Bandra Kurla Complex",
-  "pali hill": "Bandra West",
-  "mount mary": "Bandra West",
-  "turner road": "Bandra West",
-  lokhandwala: "Andheri West",
-  versova: "Andheri West",
-  oshiwara: "Andheri West",
-  "dn nagar": "Andheri West",
-  marol: "Andheri East",
-  sakinaka: "Andheri East",
-  chandivali: "Andheri East",
-  "juhu scheme": "Juhu",
-  "hiranandani estate": "Thane West",
-  "wagle estate, thane": "Thane West",
-  kasarvadavali: "Thane West",
-  kasarvadavli: "Thane West",
-  kapurbawdi: "Thane West",
-  "ghodbunder road, thane": "Thane West",
-  "mahajanwadi, thane": "Thane West",
-  "mahim west": "Mahim",
-  "matunga east": "Matunga",
-  "wadala west": "Wadala",
-  "vile parle east": "Vile Parle East",
-  "parle east": "Vile Parle East",
+  jbr: "JBR",
+  "jumeirah beach residence": "JBR",
+  "jumeirah beach residences": "JBR",
+  "burj khalifa": "Downtown Dubai",
+  "old town": "Downtown Dubai",
+  "opera district": "Downtown Dubai",
+  difc: "DIFC",
+  "dubai international financial centre": "DIFC",
+  palm: "Palm Jumeirah",
+  pj: "Palm Jumeirah",
+  "palm jumeriah": "Palm Jumeirah",
+  "signature villas": "Palm Jumeirah",
+  "jumeirah village circle": "JVC",
+  "jumeirah village triangle": "JVT",
+  "jumeriah lakes towers": "JLT",
+  "jumeirah lakes towers": "JLT",
+  impz: "Production City",
+  "production city": "Production City",
+  "international media production zone": "Production City",
+  "dubai hills": "Dubai Hills Estate",
+  "hills estate": "Dubai Hills Estate",
+  "damac hills": "Damac Hills",
+  "akoya oxygen": "Damac Hills 2",
+  "damac hills 2": "Damac Hills 2",
+  "the lakes": "The Lakes",
+  "the views": "The Views",
+  "discovery gardens": "Discovery Gardens",
+  "jebel ali": "Jebel Ali",
+  "jebel ali village": "Jebel Ali",
+  "al khail gate": "Al Quoz",
+  "al quoz": "Al Quoz",
+  "al qouz": "Al Quoz",
+  "al quoz industrial": "Al Quoz",
+  "meydan city": "Meydan",
+  "mbr city": "MBR City",
+  "mohammed bin rashid city": "MBR City",
+  "district one": "MBR City",
+  "district 7": "MBR City",
+  "reem dubai": "Reem",
+  "the villa": "The Villa",
+  "al waha": "Silicon Oasis",
+  "dubai silicon oasis": "Silicon Oasis",
+  "silicon central": "Silicon Oasis",
 };
 
 // The public browse taxonomy. Add a location here only after it has been
 // reviewed as a market-level area, rather than relying on whatever free text
 // happened to be assigned to listings during ingestion.
 const STANDALONE_LOCALITIES: Record<string, string> = {
-  "andheri east": "Andheri East",
-  "andheri west": "Andheri West",
-  ambernath: "Ambernath",
-  agripada: "Agripada",
-  badlapur: "Badlapur",
-  "bandra east": "Bandra East",
-  "bandra kurla complex": "Bandra Kurla Complex",
-  "bandra west": "Bandra West",
-  bhandup: "Bhandup",
-  bhayandar: "Bhayandar",
-  "borivali east": "Borivali East",
-  "borivali west": "Borivali West",
-  byculla: "Byculla",
-  chembur: "Chembur",
-  churchgate: "Churchgate",
-  chowpatty: "Chowpatty",
-  colaba: "Colaba",
-  "cuffe parade": "Cuffe Parade",
-  dahisar: "Dahisar",
-  "dadar east": "Dadar East",
-  "dadar west": "Dadar West",
-  dombivli: "Dombivli",
-  fort: "Fort",
-  "ghatkopar east": "Ghatkopar East",
-  "ghatkopar west": "Ghatkopar West",
-  "goregaon east": "Goregaon East",
-  "goregaon west": "Goregaon West",
-  "grant road": "Grant Road",
-  juhu: "Juhu",
-  "jogeshwari east": "Jogeshwari East",
-  "jogeshwari west": "Jogeshwari West",
-  kalyan: "Kalyan",
-  "kandivali east": "Kandivali East",
-  "kandivali west": "Kandivali West",
-  "khar west": "Khar West",
-  kurla: "Kurla",
-  "kurla west": "Kurla West",
-  lalbaug: "Lalbaug",
-  "lower parel": "Lower Parel",
-  mahalaxmi: "Mahalaxmi",
-  mahim: "Mahim",
-  "malabar hill": "Malabar Hill",
-  "malad east": "Malad East",
-  "malad west": "Malad West",
-  "marine lines": "Marine Lines",
-  matunga: "Matunga",
-  "mira road": "Mira Road",
-  "mulund west": "Mulund West",
-  "mumbai central": "Mumbai Central",
-  "nariman point": "Nariman Point",
-  nagpada: "Nagpada",
-  nerul: "Nerul",
-  panvel: "Panvel",
-  parel: "Parel",
-  powai: "Powai",
-  prabhadevi: "Prabhadevi",
-  pydhonie: "Pydhonie",
-  "santacruz east": "Santacruz East",
-  "santacruz west": "Santacruz West",
-  sewri: "Sewri",
-  sion: "Sion",
-  tardeo: "Tardeo",
-  "thane west": "Thane West",
-  "vile parle west": "Vile Parle West",
-  vashi: "Vashi",
-  vasai: "Vasai",
-  vikhroli: "Vikhroli",
-  virar: "Virar",
-  wadala: "Wadala",
-  worli: "Worli",
+  "business bay": "Business Bay",
+  "downtown dubai": "Downtown Dubai",
+  "dubai marina": "Dubai Marina",
+  jbr: "JBR",
+  difc: "DIFC",
+  "palm jumeirah": "Palm Jumeirah",
+  jvc: "JVC",
+  jvt: "JVT",
+  jlt: "JLT",
+  "dubai hills estate": "Dubai Hills Estate",
+  "damac hills": "Damac Hills",
+  "damac hills 2": "Damac Hills 2",
+  "arabian ranches": "Arabian Ranches",
+  "arabian ranches 2": "Arabian Ranches",
+  "arabian ranches 3": "Arabian Ranches",
+  "the springs": "The Springs",
+  "the meadows": "The Meadows",
+  "the greens": "The Greens",
+  "the lakes": "The Lakes",
+  "the views": "The Views",
+  "al barsha": "Al Barsha",
+  "al barsha south": "Al Barsha South",
+  "al furjan": "Al Furjan",
+  deira: "Deira",
+  karama: "Karama",
+  mirdif: "Mirdif",
+  "motor city": "Motor City",
+  "sports city": "Sports City",
+  "studio city": "Studio City",
+  "production city": "Production City",
+  "remraam": "Remraam",
+  mudon: "Mudon",
+  arjan: "Arjan",
+  "town square": "Town Square",
+  "dubailand": "Dubailand",
+  liwan: "Liwan",
+  majan: "Majan",
+  nad al sheba: "Nad Al Sheba",
+  meydan: "Meydan",
+  "mbr city": "MBR City",
+  reem: "Reem",
+  "city walk": "City Walk",
+  zaabeel: "Zaabeel",
+  "al jaddaf": "Al Jaddaf",
+  "oud metha": "Oud Metha",
+  "bur dubai": "Bur Dubai",
+  satwa: "Satwa",
+  jumeirah: "Jumeirah",
+  "umm suqeim": "Umm Suqeim",
+  "al sufouh": "Al Sufouh",
+  "emirates hills": "Emirates Hills",
+  "jumeirah golf estates": "Jumeirah Golf Estates",
+  "jumeirah islands": "Jumeirah Islands",
+  "green community": "Green Community",
+  "dubai investment park": "Dubai Investment Park",
+  "discovery gardens": "Discovery Gardens",
+  "jebel ali": "Jebel Ali",
+  "dubai silicon oasis": "Silicon Oasis",
+  "academic city": "Academic City",
+  "al warqa": "Al Warqa",
+  muhaisnah: "Muhaisnah",
+  "international city": "International City",
+  "al nahda": "Al Nahda",
+  "al qusais": "Al Qusais",
+  rashidiya: "Rashidiya",
+  hatta: "Hatta",
 };
 
 const KNOWN_LOCALITY_LABELS = Array.from(new Set([
   ...Object.values(STANDALONE_LOCALITIES),
   ...Object.values(REDIRECTS),
   ...Object.values(IMPLIED_DIRECTION),
-  ...Array.from(GENERIC_PARENTS, (value) => value.replace(/\b\w/g, (letter) => letter.toUpperCase())),
 ]));
 
 function normalise(raw: string): string {
-  // This resolver is used for both stored locality labels ("Bandra West")
-  // and dynamic route params ("bandra-west"). Treat slug separators as word
+  // This resolver is used for both stored locality labels ("Dubai Marina")
+  // and dynamic route params ("dubai-marina"). Treat slug separators as word
   // separators so every canonical locality survives a label -> slug -> route
   // round trip.
   return (raw ?? "")
@@ -219,7 +227,7 @@ export function canonicalLocality(raw: string | null | undefined): CanonicalLoca
     return { label, slug: slugify(label), public: true, standalonePage: true };
   }
 
-  // Implied direction for the three confirmed bare parents.
+  // Implied expansion for the confirmed bare parents.
   if (IMPLIED_DIRECTION[input]) {
     const label = IMPLIED_DIRECTION[input];
     return { label, slug: slugify(label), public: true, standalonePage: true };
@@ -246,9 +254,10 @@ export function canonicalLocality(raw: string | null | undefined): CanonicalLoca
  * Return the stored slugs that can represent one public canonical locality.
  *
  * The database column is derived from raw ingestion text, so historical rows
- * may contain `bandra`, `pali-hill`, or `mount-mary` even though the public
- * page is grouped under `bandra-west`. Keep this expansion in the read path
- * until the stored column is rebuilt from the canonical taxonomy.
+ * may contain `marina`, `impz`, or `burj-khalifa` even though the public
+ * page is grouped under `dubai-marina` / `production-city` /
+ * `downtown-dubai`. Keep this expansion in the read path until the stored
+ * column is rebuilt from the canonical taxonomy.
  */
 export function localityQuerySlugs(raw: string): string[] {
   const canonical = canonicalLocality(raw);

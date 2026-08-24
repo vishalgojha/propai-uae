@@ -52,6 +52,7 @@ def test_agent_tool_schemas_cover_requested_tools(monkeypatch):
         "get_broker_profile",
         "create_lead",
         "log_internal_note",
+        "save_my_deal",
     }
     assert agent_tools.READ_TOOL_NAMES.isdisjoint(agent_tools.WRITE_TOOL_NAMES)
     monkeypatch.setenv("PROPAI_AGENT_CONFIRMATION_SECRET", "test-secret")

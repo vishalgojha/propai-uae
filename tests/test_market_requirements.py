@@ -75,8 +75,8 @@ def test_requirement_projection_classifies_demand_and_normalizes_budget():
     assert _is_market_requirement({"message_type": "requirement"})
     assert _is_market_requirement({"message_type": "buy"})
     assert not _is_market_requirement({"message_type": "sale", "intent": "SELL"})
-    assert _price_to_rupees(2, "lakh") == 200000
-    assert _price_to_rupees(1.5, "cr") == 15000000
+    assert _price_to_rupees(850, "k") == 850000
+    assert _price_to_rupees(1.5, "m") == 1500000
 
 
 def test_requirement_search_reads_market_requirements_and_returns_rows():

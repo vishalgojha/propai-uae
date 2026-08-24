@@ -108,38 +108,74 @@ def test_market_feed_endpoints_forward_the_active_tenant(monkeypatch):
 
 
 def test_market_broker_feed_prefers_database_aggregation():
+    """The brokers directory aggregates typed market rows database-side."""
+    from types import SimpleNamespace
+
     from storage.supabase import SupabaseStorage, set_tenant_id
 
-    calls = []
+    tables_queried = []
+
+    class FakeQuery:
+        def __init__(self, rows):
+            self.rows = list(rows)
+
+        def __getattr__(self, name):
+            if name.startswith("__"):
+                raise AttributeError(name)
+
+            def _chain(*args, **kwargs):
+                return self
+
+            return _chain
+
+        def execute(self):
+            return SimpleNamespace(data=self.rows)
+
+    parsed_rows = [
+        {
+            "id": 1,
+            "raw_message_id": 101,
+            "intent": "SELL",
+            "broker_name": "Deepak Jagasia",
+            "broker_phone": "",
+            "created_at": "2026-08-01T10:00:00+00:00",
+            "summary_title": "First listing",
+        },
+        {
+            "id": 2,
+            "raw_message_id": 102,
+            "intent": "SELL",
+            "broker_name": "Private Broker",
+            "visibility": "workspace_private",
+            "tenant_id": "org-other",
+            "created_at": "2026-08-01T11:00:00+00:00",
+            "summary_title": "Other workspace row",
+        },
+    ]
 
     class FakeClient:
-        def rpc(self, name, params):
-            calls.append((name, params))
-            return [{
-                "identity_key": "name:deepak jagasia",
-                "canonical_name": "Deepak Jagasia",
-                "observation_count": 7,
-            }]
+        def table(self, name):
+            tables_queried.append(name)
+            if name == "residential_sale_listings":
+                return FakeQuery(parsed_rows)
+            # Other typed tables plus the superseded-raw probe are empty.
+            return FakeQuery([])
 
     storage = object.__new__(SupabaseStorage)
     storage._client = FakeClient()
-    storage._SupabaseStorage__tenant_id_fallback = None
+
+    set_tenant_id("org-2")
     try:
-        set_tenant_id("org-2")
         result = storage.get_brokers_feed(25, 0, min_observations=1)
     finally:
         set_tenant_id(None)
 
+    assert result
     assert result[0]["identity_key"] == "name:deepak jagasia"
-    assert calls == [(
-        "get_market_brokers_feed",
-        {
-            "p_limit": 25,
-            "p_offset": 0,
-            "p_min_observations": 1,
-            "p_tenant_id": "org-2",
-        },
-    )]
+    assert result[0]["canonical_name"] == "Deepak Jagasia"
+    # Another workspace's private rows must not leak into the shared feed.
+    assert all(row["canonical_name"] != "Private Broker" for row in result)
+    assert "residential_sale_listings" in tables_queried
 
 
 def test_market_identity_links_name_only_rows_to_one_phone():
@@ -186,14 +222,10 @@ def test_parsed_market_fallback_merges_phone_and_name_rows():
             "id": 2,
             "raw_message_id": 102,
             "intent": "SELL",
-            "profile_name": "Deepak Jagasia",
+            "broker_name": "Deepak Jagasia",
             "created_at": "2026-07-18T11:00:00+00:00",
             "summary_title": "Latest listing",
         },
-    ]
-    raw_rows = [
-        {"id": 101, "group_name": "Juhu Brokers", "sender": "Deepak Jagasia", "timestamp": "2026-07-18T10:00:00+00:00", "is_group": True},
-        {"id": 102, "group_name": "Juhu Brokers", "sender": "Deepak Jagasia", "timestamp": "2026-07-18T11:00:00+00:00", "is_group": True},
     ]
 
     class FakeQuery:
@@ -210,7 +242,8 @@ def test_parsed_market_fallback_merges_phone_and_name_rows():
         def table(self, name):
             if name == "residential_sale_listings":
                 return FakeQuery(parsed_rows)
-            return FakeQuery(raw_rows)
+            # Other typed tables plus the superseded-raw probe are empty.
+            return FakeQuery([])
 
     storage = object.__new__(SupabaseStorage)
     storage._client = FakeClient()
@@ -234,10 +267,10 @@ def test_parsed_market_specialties_do_not_count_reposts_twice():
             "intent": "RENT",
             "broker_name": "Market Broker",
             "broker_phone": "9820012345",
-            "micro_market": "Zuhu",
+            "micro_market": "Deira",
             "property_type": "Apartment",
             "bhk": "2 BHK",
-            "price": "2 lakh",
+            "price": "85K",
             "created_at": "2026-07-18T10:00:00+00:00",
         },
         {
@@ -246,10 +279,10 @@ def test_parsed_market_specialties_do_not_count_reposts_twice():
             "intent": "RENT",
             "broker_name": "Market Broker",
             "broker_phone": "9820012345",
-            "micro_market": "Zuhu",
+            "micro_market": "Deira",
             "property_type": "Apartment",
             "bhk": "2 BHK",
-            "price": "2 lakh",
+            "price": "85K",
             "created_at": "2026-07-18T11:00:00+00:00",
         },
         {
@@ -258,17 +291,12 @@ def test_parsed_market_specialties_do_not_count_reposts_twice():
             "intent": "SELL",
             "broker_name": "Market Broker",
             "broker_phone": "9820012345",
-            "micro_market": "Andheri West",
+            "micro_market": "JVC",
             "property_type": "Office",
             "area_sqft": 900,
-            "price": "4 crore",
+            "price": "4M",
             "created_at": "2026-07-18T12:00:00+00:00",
         },
-    ]
-    raw_rows = [
-        {"id": 101, "group_name": "Broker Group", "timestamp": "2026-07-18T10:00:00+00:00", "is_group": True},
-        {"id": 102, "group_name": "Broker Group", "timestamp": "2026-07-18T11:00:00+00:00", "is_group": True},
-        {"id": 103, "group_name": "Broker Group", "timestamp": "2026-07-18T12:00:00+00:00", "is_group": True},
     ]
 
     class FakeQuery:
@@ -285,7 +313,8 @@ def test_parsed_market_specialties_do_not_count_reposts_twice():
         def table(self, name):
             if name == "residential_sale_listings":
                 return FakeQuery(parsed_rows)
-            return FakeQuery(raw_rows)
+            # Other typed tables plus the superseded-raw probe are empty.
+            return FakeQuery([])
 
     storage = object.__new__(SupabaseStorage)
     storage._client = FakeClient()
@@ -294,27 +323,32 @@ def test_parsed_market_specialties_do_not_count_reposts_twice():
     result = storage._get_parsed_market_threads(25, 0)
 
     assert result[0]["message_count"] == 2
-    assert result[0]["specialty_localities"] == ["Andheri West", "Zuhu"]
+    assert result[0]["specialty_localities"] == ["Deira", "JVC"]
     assert result[0]["specialty_property_types"] == ["Apartment", "Office"]
 
 
 def test_phone_observation_fallback_includes_linked_name_only_rows():
+    from datetime import datetime, timedelta, timezone
+
     from types import SimpleNamespace
     from storage.supabase import SupabaseStorage
 
     def parsed_row(row_id, phone):
+        seen_at = (datetime.now(timezone.utc) - timedelta(days=1, hours=row_id)).isoformat()
         return {
             "id": row_id,
             "raw_message_id": 100 + row_id,
             "intent": "SELL",
             "broker_name": "Deepak Jagasia",
             "broker_phone": phone,
-            "created_at": f"2026-07-18T1{row_id}:00:00+00:00",
+            # Distinct listings so the repost projection keeps them separate.
+            "bhk": f"{row_id} BHK",
+            "created_at": seen_at,
             "raw_messages": {
-                "group_name": "Juhu Brokers",
+                "group_name": "Dubai Marina Brokers",
                 "sender": "Deepak Jagasia",
                 "message": f"Listing {row_id}",
-                "timestamp": f"2026-07-18T1{row_id}:00:00+00:00",
+                "timestamp": seen_at,
                 "is_group": True,
             },
         }
@@ -359,15 +393,15 @@ def test_observation_detail_dedupes_repeated_listings():
             "listing_index": 0,
             "intent": "SELL",
             "bhk": "3 BHK",
-            "price": 9500000,
-            "price_unit": "₹",
+            "price": 2500000,
+            "price_unit": "AED",
             "area_sqft": 1200,
             "furnishing": "Furnished",
-            "building_name": "Ekta Meadows",
-            "landmark_name": "Near National Park",
-            "micro_market": "Andheri West",
-            "location_raw": "Andheri West",
-            "summary_title": "3 BHK | Ekta Meadows | ₹95L",
+            "building_name": "Marina Gate",
+            "landmark_name": "Near Metro Station",
+            "micro_market": "Dubai Marina",
+            "location_raw": "Dubai Marina",
+            "summary_title": "3 BHK | Marina Gate | AED 2.5M",
             "created_at": "2026-07-19T10:00:00Z",
         },
         {
@@ -376,15 +410,15 @@ def test_observation_detail_dedupes_repeated_listings():
             "listing_index": 0,
             "intent": "SELL",
             "bhk": "3 BHK",
-            "price": 9500000,
-            "price_unit": "₹",
+            "price": 2500000,
+            "price_unit": "AED",
             "area_sqft": 1200,
             "furnishing": "Furnished",
-            "building_name": "Ekta Meadows",
-            "landmark_name": "Near National Park",
-            "micro_market": "Andheri West",
-            "location_raw": "Andheri West",
-            "summary_title": "3 BHK | Ekta Meadows | ₹95L",
+            "building_name": "Marina Gate",
+            "landmark_name": "Near Metro Station",
+            "micro_market": "Dubai Marina",
+            "location_raw": "Dubai Marina",
+            "summary_title": "3 BHK | Marina Gate | AED 2.5M",
             "created_at": "2026-07-19T10:01:00Z",
         },
     ]
@@ -392,11 +426,17 @@ def test_observation_detail_dedupes_repeated_listings():
     class FakeQuery:
         def __init__(self, table_name):
             self.table_name = table_name
+            self._superseded_probe = False
 
         def select(self, *args, **kwargs):
             return self
 
-        def eq(self, *args, **kwargs):
+        def eq(self, column, *values):
+            if column == "extraction_superseded":
+                self._superseded_probe = True
+            return self
+
+        def in_(self, *_args, **_kwargs):
             return self
 
         def order(self, *args, **kwargs):
@@ -406,6 +446,9 @@ def test_observation_detail_dedupes_repeated_listings():
             return self
 
         def execute(self):
+            if self._superseded_probe:
+                # Nothing is marked superseded in this fixture.
+                return SimpleNamespace(data=[])
             if self.table_name == "residential_sale_listings":
                 return SimpleNamespace(data=parsed_rows)
             if self.table_name == "raw_messages":
@@ -1037,30 +1080,38 @@ def test_supabase_storage_parsed_and_listing_writes():
 
         if request.method == "POST" and request.url.path.endswith("/residential_rent_listings"):
             return httpx.Response(201, json=[{"id": 11}])
-        if request.method == "GET" and request.url.path.endswith("/parsed_output_unified"):
-            return httpx.Response(
-                200,
-                json=[{
-                    "id": 11,
-                    "raw_message_id": 99,
-                    "intent": "RENT",
-                    "location": {"area": "Bandra"},
-                }],
-            )
-
-        if request.method == "POST" and request.url.path.endswith("/residential_rent_listings"):
-            return httpx.Response(201, json=[{"id": 22, "fingerprint": "fp"}])
-        if request.method == "GET" and request.url.path.endswith("/listings_unified"):
-            return httpx.Response(
-                200,
-                json=[{
-                    "id": 22,
-                    "fingerprint": "fp",
-                    "intent": "RENT",
-                    "bhk": "2BHK",
-                    "location_label": "Bandra West",
-                }],
-            )
+        if request.method == "GET" and request.url.path.endswith("/raw_messages"):
+            # The typed observation write resolves WhatsApp freshness from
+            # the raw message before inserting.
+            return httpx.Response(200, json=[{"timestamp": "2026-08-01T09:00:00+00:00"}])
+        if request.method == "GET" and request.url.path.endswith("_listings"):
+            # Parsed reads resolve through the typed source tables.
+            url = str(request.url)
+            if request.url.path.endswith("/residential_rent_listings"):
+                if "raw_message_id=eq." in url:
+                    return httpx.Response(
+                        200,
+                        json=[{
+                            "id": 11,
+                            "raw_message_id": 99,
+                            "listing_index": 0,
+                            "transaction_type": "rent",
+                            "micro_market": "Dubai Marina",
+                            "locality_raw": "Dubai Marina",
+                        }],
+                    )
+                if "source_fingerprint=eq." in url:
+                    return httpx.Response(
+                        200,
+                        json=[{
+                            "id": 22,
+                            "transaction_type": "rent",
+                            "building_name": "Marina Gate",
+                            "micro_market": "Dubai Marina",
+                        }],
+                    )
+            # Other typed listing tables have no matching rows.
+            return httpx.Response(200, json=[])
 
         raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
@@ -1074,7 +1125,7 @@ def test_supabase_storage_parsed_and_listing_writes():
         raw_message_id=99,
         intent="RENT",
         raw_payload='{"source":"whatsapp"}',
-        location='{"area":"Bandra"}',
+        location='{"area":"Dubai Marina"}',
         embedding=b"abc",
     )
     parsed_id = storage.save_parsed(parsed)
@@ -1082,43 +1133,61 @@ def test_supabase_storage_parsed_and_listing_writes():
 
     fetched_parsed = storage.get_parsed_by_raw(99)
     assert fetched_parsed is not None
-    assert fetched_parsed is not None
-    assert fetched_parsed.location == {"area": "Bandra"}
+    assert fetched_parsed.location_raw == "Dubai Marina"
 
     listing = Listing(
         intent="RENT",
         bhk="2BHK",
         price=150000,
-        price_unit="INR",
+        price_unit="AED",
         area_sqft=1000,
-        building_name="Demo Tower",
-        micro_market="Bandra West",
+        building_name="Marina Gate",
+        micro_market="Dubai Marina",
     )
+    expected_fp = listing_fingerprint({k: v for k, v in listing.__dict__.items() if v is not None})
+    expected_label = listing_label({k: v for k, v in listing.__dict__.items() if v is not None})
+
     listing_id = storage.save_listing(listing)
     assert listing_id != 0
 
-    fetched_listing = storage.get_listing_by_fingerprint("fp")
+    fetched_listing = storage.get_listing_by_fingerprint(expected_fp)
     assert fetched_listing is not None
-    assert fetched_listing is not None
-    assert fetched_listing.fingerprint == "fp"
+    assert fetched_listing.micro_market == "Dubai Marina"
 
-    assert requests[0]["method"] == "POST"
-    assert requests[0]["url"].startswith("https://example.supabase.co/rest/v1/residential_rent_listings")
-    assert '"embedding"' not in requests[0]["body"]
-    assert '"raw_payload": {"source": "whatsapp"}' in requests[0]["body"]
-    assert '"raw_message_id": 99' in requests[0]["body"]
+    # save_parsed resolves raw freshness, probes the sibling typed tables
+    # for an existing (raw_message_id, listing_index) row, then inserts.
+    assert requests[0]["method"] == "GET"
+    assert requests[0]["url"].startswith("https://example.supabase.co/rest/v1/raw_messages")
 
-    expected_fp = listing_fingerprint({k: v for k, v in listing.__dict__.items() if v is not None})
-    expected_label = listing_label({k: v for k, v in listing.__dict__.items() if v is not None})
-    assert requests[1]["method"] == "GET"
-    assert requests[1]["url"] == "https://example.supabase.co/rest/v1/parsed_output_unified?select=%2A&raw_message_id=eq.99&limit=1"
-    assert requests[2]["method"] == "POST"
-    assert requests[2]["url"].startswith("https://example.supabase.co/rest/v1/residential_rent_listings")
-    assert requests[2]["prefer"] == "resolution=merge-duplicates,return=representation"
-    assert f'"source_fingerprint": "{expected_fp}"' in requests[2]["body"]
-    assert '"micro_market": "Bandra West"' in requests[2]["body"]
-    assert requests[3]["method"] == "GET"
-    assert requests[3]["url"] == "https://example.supabase.co/rest/v1/listings_unified?select=%2A&fingerprint=eq.fp&limit=1"
+    for probe_index in (1, 2, 3):
+        assert requests[probe_index]["method"] == "GET"
+        assert "raw_message_id=eq.99" in requests[probe_index]["url"]
+
+    assert requests[4]["method"] == "POST"
+    assert requests[4]["url"].startswith("https://example.supabase.co/rest/v1/residential_rent_listings")
+    assert '"embedding"' not in requests[4]["body"]
+    assert '"raw_payload": {"source": "whatsapp"}' in requests[4]["body"]
+    assert '"raw_message_id": 99' in requests[4]["body"]
+
+    # get_parsed_by_raw fans out over all eight typed tables.
+    assert len(requests) == 16
+    for probe_index in range(5, 13):
+        assert requests[probe_index]["method"] == "GET"
+        assert "raw_message_id=eq.99" in requests[probe_index]["url"]
+
+    assert requests[13]["method"] == "POST"
+    assert requests[13]["url"].startswith("https://example.supabase.co/rest/v1/residential_rent_listings")
+    assert requests[13]["prefer"] == "return=representation"
+    assert f'"source_fingerprint": "{expected_fp}"' in requests[13]["body"]
+    assert '"micro_market": "Dubai Marina"' in requests[13]["body"]
+
+    # The fingerprint lookup fans out over the typed listing tables.
+    assert requests[14]["method"] == "GET"
+    assert requests[14]["url"].startswith("https://example.supabase.co/rest/v1/residential_sale_listings")
+    assert "source_fingerprint=eq." in requests[14]["url"]
+    assert requests[15]["method"] == "GET"
+    assert requests[15]["url"].startswith("https://example.supabase.co/rest/v1/residential_rent_listings")
+    assert f"source_fingerprint=eq.{expected_fp}" in requests[15]["url"]
 
 
 def test_resolver_decision_uses_database_timestamp_default():

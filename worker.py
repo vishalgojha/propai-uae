@@ -88,11 +88,11 @@ def _check_price_outlier(storage: SupabaseStorage, d: dict):
         return
 
     outlier_type = "above" if price_f > stats["p95"] else "below"
-    title = f"Price outlier: ₹{price_f:,.0f} for {bhk} in {micro_market}"
+    title = f"Price outlier: AED {price_f:,.0f} for {bhk} in {micro_market}"
     description = (
-        f"{bhk} in {micro_market}: price ₹{price_f:,.0f} is {outlier_type} "
-        f"the normal range (₹{stats['p5']:,.0f}–₹{stats['p95']:,.0f}). "
-        f"Median: ₹{stats['median']:,.0f} ({stats['count']} samples). "
+        f"{bhk} in {micro_market}: price AED {price_f:,.0f} is {outlier_type} "
+        f"the normal range (AED {stats['p5']:,.0f}–{stats['p95']:,.0f}). "
+        f"Median: AED {stats['median']:,.0f} ({stats['count']} samples). "
     )
 
     from lab.storage.base import AISuggestion

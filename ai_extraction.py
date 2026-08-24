@@ -33,7 +33,7 @@ from llm import get_configured_providers
 from deterministic_splitters import split_message_into_chunks
 from extraction_models import validate_source_semantics
 from extraction_quality import building_name_problem
-from price_normalization import canonical_price_rupees, source_transaction_type
+from price_normalization import canonical_price_aed, source_transaction_type
 from agents.building_alias_engine import fuzzy_score
 
 _logger = logging.getLogger(__name__)
@@ -281,44 +281,38 @@ def _next_provider() -> dict | None:
 # ── Schema validation ─────────────────────────────────────────────────
 
 _PRICE_PARSING_INSTRUCTIONS = """PRICE PARSING — CRITICAL:
-- Convert explicit units to absolute rupees: 1 Cr = 10000000, 1 Lakh = 100000, and K = 1000.
-- Indian broker shorthand: L/l, lac, lacs, lakh, and lakhs all mean lakh rupees;
-  never interpret L/l as million. Thus 1.85L = 185000 rupees, 2.20L = 220000
-  rupees, and 4L = 400000 rupees. Preserve the source spelling in raw_price_text,
-  but use lakh semantics in the amount and any generated title.
-- “8.5 Cr” means 85000000, never 8.5 or 8500000.
-- “2.50 Lakhs” means 250000; “75 K” means 75000.
-- “8.5.Cr”, “2:25 Cr”, and “75.Lakh” use punctuation as a separator: parse them as 8.5 Cr, 2.25 Cr, and 75 Lakh.
+- Convert explicit units to absolute dirhams: 1 M = 1000000 and K = 1000.
+- UAE broker shorthand: M/mn/million mean million dirhams; K/k/thousand mean
+  thousand dirhams. Thus 1.5M = 1500000, 850K = 850000, and 95k = 95000.
+  Preserve the source spelling in raw_price_text.
+- “2.5M” means 2500000, never 2.5 or 250000.
+- “85K” means 85000; rents are ANNUAL totals unless explicitly marked "/month".
+- “1.5.M”, “2:25M”, and “95.K” use punctuation as a separator: parse them as 1.5M, 2.25M, and 95K.
 - Preserve raw_price_text exactly as written in the source.
-- “60k” or “95k” means thousand. A decimal k-quote below 5 such as “1.20k”
-  or “3.5k” in a Mumbai residential rental may mean lakh, but 5k and above
-  always retains thousand semantics (for example 14.5k=14500). Preserve the
-  raw text and set needs_review=true when context does not make the unit clear.
 - For PSF/per-sqft quotes use unit “per_sqft” and keep amount as the per-sqft rate; otherwise use unit “total”.
 - Never infer a price from unrelated numbers such as floor, parking, area, or phone numbers."""
 
-# This is a compact, production-facing subset of the Mumbai broker glossary.
+# This is a compact, production-facing subset of the UAE broker glossary.
 # Keep high-confidence dialect rules here; the full research document belongs
 # in docs, not in every provider request. Deterministic guards remain the
 # authority for values that can be normalized without an LLM.
-_MUMBAI_BROKER_GLOSSARY = """MUMBAI BROKER DIALECT — FOLLOW STRICTLY:
-- “lease” / “on lease” in a property context means monthly RENT, not a long-term contract.
+_BROKER_GLOSSARY = """UAE BROKER DIALECT — FOLLOW STRICTLY:
+- “lease” / “on lease” / “for rent” in a property context means RENT (an annual
+  AED total unless marked "/month"), not a long-term contract.
 - “outright” and the broker typo “outrate” mean SALE.
-- “preleased” / “pre-rented” is SALE with an existing tenant; any rent stated is current tenant yield, not asking monthly rent.
+- “preleased” / “pre-rented” is SALE with an existing tenant; any rent stated is current tenant yield, not asking rent.
 - “sale & rent” or “sale or lease” can describe both availability modes; preserve both in deal_tags and never silently convert one price into the other.
 - “budget”, “urgent requirement”, “required”, “looking for”, or “client needs” indicate a REQUIREMENT; budget is not listing price.
 - “nego” means negotiable; “nnego” is not a recognized term. “final” means fixed/non-negotiable.
 - “cpt” means carpet area; “bup” means built-up area. In NUMBER @ NUMBER, first is area sqft and second is price only when the line is clearly a property price line.
-- “1 RK” is not “1 BHK”. Keep BHK/configuration as text, including 2.5 BHK, converted layouts, and jodi flats.
-- “converted” means a changed layout: keep current and original configuration. “jodi” is one combined listing, not two listings; keep the original combination too.
-- “+N” directly after a rent amount may be a deposit in lakh rupees only when it is plausible (at most six months of rent). Standalone “+1” / “My +1” means co-brokered.
+- “Studio” is not “1BR”. Keep BR/configuration as text exactly as written.
+- “chiller free” means the tenant does not pay AC/chiller charges; preserve it as an amenity/deal fact.
+- Payments are commonly made via post-dated cheques: “4 cheques”, “6 chqs”, or "1 cheque" describes the payment plan, not the annual amount. Standalone “+1” / “My +1” means co-brokered.
 - “builder finish”, “bare shell”, “warm shell”, and “untouched” are furnishing/fitout facts, not transaction types.
 - “brand new building” / “new building” is a property-condition fact. Preserve it as the `brand_new_building` deal tag (and use the appropriate age/fitout field when the route exposes one). Do not treat it as a listing boundary or discard it as boilerplate.
-- “AI” after a price means all-inclusive; ignore “AI” inside an amenity or project name.
 - “company lease” means company-paid residential tenancy in residential context, and company as tenant in commercial context.
-- Extract tenant preferences such as family, bachelors, vegetarian, working, student, company lease, and expat as facts; do not filter or omit them.
-- “G+N” is context-dependent: building height or a multi-floor unit. Do not guess.
-- Indian floors: ground/GF/G is street level; 1st floor is one level above ground.
+- Extract tenant preferences such as family, bachelors, working, student, company lease, and expat as facts; do not filter or omit them.
+- Floors: ground/GF/G is street level; podium levels sit above ground; 1st floor is one level above ground.
 - Never fabricate or estimate a price. If a unit is genuinely ambiguous, preserve raw_price_text and set needs_review=true.
 - If multiple independent listings remain, return one item per listing; never collapse them into one item."""
 
@@ -332,7 +326,7 @@ def _classify_message_flags(text: str) -> tuple[str, str, bool]:
     """
     value = (text or "").lower()
     demand = re.search(
-        r"\b(?:urgent\s+)?(?:requirement|required|wanted|want|need|needed|seeking|looking\s+for|looking\s+to\s+(?:buy|rent)|client\s+(?:needs?|is\s+looking)|buyer\s+required|tenant\s+required|chahiye|koi\s+.+\s+(?:hai|available)\s+kya)\b",
+        r"\b(?:urgent\s+)?(?:requirement|required|wanted|want|need|needed|seeking|looking\s+for|looking\s+to\s+(?:buy|rent)|client\s+(?:needs?|is\s+looking)|buyer\s+required|tenant\s+required)\b",
         value,
     )
     supply = re.search(
@@ -370,7 +364,7 @@ def _classify_message_flags(text: str) -> tuple[str, str, bool]:
         value,
     ))
     sale = bool(re.search(
-        r"\b(?:sale|sell|buy|purchase|outright|outrate|asking|quote|sale\s+price|crore|cr)\b",
+        r"\b(?:sale|sell|buy|purchase|outright|outrate|asking|quote|sale\s+price)\b",
         value,
     ))
     if is_requirement and rent:
@@ -465,28 +459,19 @@ Residential rent listing rules:
 - A normal apartment rental is supported. PG, hostel, paying-guest, dormitory,
   co-living, room-sharing, and bed-by-bed offers are not supported inventory;
   do not emit typed listing items for them.
-- Mumbai rent shorthand: in a clear residential-rental context, decimal
-  k-quotes below 5 such as 1.30k, 2.50k, or 3.5k may mean 1.30 lakh,
-  2.50 lakh, or 3.5 lakh respectively. Preserve the exact raw text and
-  normalize to absolute rupees. Values of 5k or more retain thousand
-  semantics: 5k=5000, 14.5k=14500, and 25k=25000. Plain 130k remains 130000.
-  Never normalize 1.30k to 1300 or 14.5k to 14.5 lakh.
-- For total monthly residential rent, a small decimal k-value is lakh
-  shorthand: 1.30k=130000, 1.3k=130000, 2.50k=250000, and 3.5k=350000.
-  This typo-rescue applies only below 5k; 5k and above is a valid literal
-  monthly rent in lower-cost Mumbai Metropolitan Region markets.
-  This rule does not apply to per_sqft rates, sale prices, deposits,
-  maintenance, parking charges, or other fees. If the context is unclear,
-  preserve the source quote and set needs_review=true.
-- Normalize L/l, lac, lacs, lakh, and lakhs to lakh semantics. For example,
-  1.85L is 185000 rupees, never 1850000; generated titles must say
-  1.85 Lakh/month rather than 18.5 Lakh/month.
+- Residential rents are ANNUAL AED totals unless explicitly marked "/month".
+  85K=85000/year, 120k=120000/year, and 1.5M=1500000/year. Preserve the exact
+  raw text and normalize to absolute annual dirhams. This rule does not apply
+  to per_sqft rates, sale prices, deposits, maintenance, parking charges, or
+  other fees. If the context is unclear, preserve the source quote and set
+  needs_review=true.
 - Lease language means RENT. Extract lease duration separately from lock-in:
   “3/5 years lease” is lease_term_min_months=36 and lease_term_max_months=60,
   while lock_in_period_months is only for an explicit lock-in period.
-- Deposits: “3 months deposit” populates deposit_months; a flat amount such as
-  “2 lakh deposit” populates deposit_amount. Preserve deposit_raw_text. Do not
-  invent a deposit amount when only months are given.
+- Deposits: “5% deposit” or “10%” of annual rent and “N months deposit”
+  wording both occur; a flat amount such as “10K deposit” populates
+  deposit_amount. Preserve deposit_raw_text. Do not invent a deposit amount
+  when only months or a percentage is given.
 - Residential rent is normally maintenance/CAM inclusive. Do not invent or
   split residential maintenance or CAM fields.
 - Tenant rules are facts: preserve family, bachelor, expat, company lease,
@@ -518,8 +503,8 @@ Residential rent listing rules:
   availability_date_raw; do not invent a year. “Immediate” belongs in
   availability_status.
 - A message saying sale and lease for the same property preserves both modes;
-  do not silently choose one. A sale-priced crore quote without rent language
-  is not monthly rent, even if a heading contains a typo such as “RANTAL”.
+  do not silently choose one. A sale-priced million-dirham quote without rent language
+  is not rent, even if a heading contains a typo.
 - Same-inventory matching across brokers is not extraction. Preserve each
   broker's observation and source-specific facts; never merge or suppress it.
 """
@@ -542,17 +527,12 @@ Commercial rent listing rules:
   the basis and total are clear, compute monthly_rent and preserve price_math
   with rate, basis, area, and formula. Never silently use carpet area for a
   chargeable-area quote.
-- Commercial rent is monthly. Normalize “pkg”, “package”, “pckg”, and “packg”
-  to ordinary monthly rent; do not turn them into deposit, CAM, or a 1% charge.
-  Preserve price.raw_price_text and set price_basis="monthly" when the source
+- Commercial rent is usually an ANNUAL AED total; treat a bare quote such as
+  “450K” as 450000/year unless "/month" is explicit. PSF rates are per square
+  foot per year. Normalize “pkg”, “package”, “pckg”, and “packg” to ordinary
+  rent; do not turn them into deposit, CAM, or a 1% charge.
+  Preserve price.raw_price_text and set price_basis="annual" when the source
   gives only a package amount. CAM is separate only when explicitly stated.
-- Indian commercial rent uses lakh shorthand too: L/l, lac, lacs, lakh, and
-  lakhs mean lakh rupees, never million. Therefore 1.85L=185000 rupees and
-  2.20L=220000 rupees. For a total monthly rent only, decimal k-values below
-  5 such as 1.30k or 3.5k mean 130000 or 350000 rupees respectively. Values
-  of 5k or more retain thousand semantics: 14.5k=14500. Do not
-  apply that k-rule to per_sqft rates, sale prices, deposits, CAM, maintenance,
-  or other fees; set needs_review=true when the context is ambiguous.
 - Deposits: “6 months deposit” sets deposit_months; a flat amount sets
   deposit_amount. Do not derive a deposit amount from months. Keep deposit_raw_text.
 - Capture office capacity and facilities when stated: workstations, cabins,
@@ -601,7 +581,7 @@ Commercial sale listing rules:
   be multiplied only when the source explicitly states the pricing area; preserve
   price_math with rate, basis, area, and formula. Otherwise keep price_per_sqft
   without inventing total_asking_price.
-- Total quotes such as “₹7.20 Cr” populate total_asking_price. “Negotiable” is a
+- Total quotes such as “AED 7.2M” populate total_asking_price. “Negotiable” is a
   price qualifier/deal tag, not a changed amount. Preserve raw price text.
 - Capture office facilities and capacities: workstations, cabins, director/CEO
   cabins, cubicles, conference/meeting rooms, pantry, reception, server/storage,
@@ -623,8 +603,9 @@ Residential rent requirement rules:
   a listing from a requirement phrase such as "looking for" or "required".
 - Extract BHK/configuration exactly, including 1 RK, 2.5 BHK, jodi, and converted
   layouts. Use bhk_options/configuration_preference; do not force a whole number.
-- Extract monthly budget in absolute rupees. "70k" is 70000, "1.30 lakh" is
-  130000, and "up to 1.5L" sets budget_max=150000. Never treat a deposit as rent.
+- Extract annual budget in absolute dirhams. "70K" is 70000/year, "85k" is
+  85000/year, and "up to 120K" sets budget_max=120000. Never treat a deposit
+  as rent.
 - Preserve locality corridors and alternatives in locality_options, including
   "Bandra to Santacruz West" or "Andheri East to Goregaon East". Keep the raw
   wording in the source evidence and do not collapse a corridor into one place.
@@ -657,10 +638,10 @@ Residential sale requirement rules:
 - Extract every stated configuration into bhk_options, preserving 1 RK,
   fractional BHK, jodi, converted layouts, and alternatives. Do not force a
   single BHK when the buyer gives a range or multiple options.
-- Budget is the purchase price, not monthly rent. Normalize absolute totals
+- Budget is the purchase price, not rent. Normalize absolute totals
   into budget_min and budget_max:
-  "70 lakh" becomes 7000000, "1.30 lakh" becomes 130000, "1.5 crore"
-  becomes 15000000, and "up to 2 Cr" sets budget_max=20000000. Preserve
+  "700K" becomes 700000, "1.5M" becomes 1500000, "up to 2M"
+  sets budget_max=2000000. Preserve
   whether the source says total purchase price or per-square-foot budget;
   never treat a rent, deposit, token, or maintenance amount as the purchase
   budget. If a per-sqft quote is ambiguous or cannot be separated from a
@@ -669,7 +650,7 @@ Residential sale requirement rules:
   basis and raw wording in the evidence; do not turn a carpet-area preference
   into a fabricated built-up or saleable area.
 - Preserve locality corridors and alternatives in locality_options, including
-  "Bandra to Santacruz West", "Andheri East or Powai", and similar wording.
+  "JVC to Al Barsha", "Dubai Marina or JBR", and similar wording.
   Do not collapse a corridor into one locality or silently choose a preferred
   endpoint. Keep locality ambiguity flagged for review.
 - building_preferences are preferences, not facts about an available
@@ -696,8 +677,8 @@ Residential sale requirement rules:
   unclear, or another material purchase constraint conflicts or is incomplete.
   Do not hide an explicitly stated budget, BHK, locality, or preference merely
   because the request is informal.
-- title should describe the demand, such as "3 BHK Buyer Requirement in Bandra
-  West", and must not read like an advertised available property.
+- title should describe the demand, such as "2BR Buyer Requirement in Dubai
+  Marina", and must not read like an advertised available property.
 """
 
 
@@ -715,14 +696,14 @@ Commercial sale requirement rules:
   source says carpet, built-up, chargeable, or another basis in the evidence;
   do not fabricate a missing maximum from wording such as "800+".
 - Budget is a purchase price or an explicit purchase PSF ceiling, never rent.
-  Normalize "up to 5 Cr" to budget_max=50000000 and "₹25,000 per sqft max"
-  to budget_per_sqft_max=25000. A single total purchase figure sets the
+  Normalize "up to 5M" to budget_max=5000000 and "AED 2500 per sqft max"
+  to budget_per_sqft_max=2500. A single total purchase figure sets the
   appropriate budget bound; a range sets budget_min/budget_max. Do not invent
   CAM, maintenance, deposit, or other rental fields because they do not exist
-  in this sale-requirement schema. Flag total-versus-PSF or lakh/crore unit
+  in this sale-requirement schema. Flag total-versus-PSF or unit
   ambiguity for review while preserving the raw wording.
 - Preserve locality corridors and flexibility in locality_options, including
-  "Bandra to Santacruz West", highway/road preferences, alternatives, and
+  "Business Bay to DIFC", Sheikh Zayed Road preferences, alternatives, and
   "okay with nearby areas". Do not collapse a corridor into one locality or
   silently discard an explicit flexibility condition.
 - fitout_preference captures only an explicit bare-shell, warm-shell,
@@ -746,7 +727,7 @@ Commercial sale requirement rules:
   area, commercial use, locality corridor, or any material amenity constraint
   is ambiguous or conflicting.
 - title should describe the demand, such as "Commercial Office Purchase
-  Requirement in Andheri East", and must not read like an available listing.
+  Requirement in Business Bay", and must not read like an available listing.
 """
 
 
@@ -759,15 +740,15 @@ Commercial rent requirement rules:
   intended_use_details/unstructured_facts.
 - Area ranges populate area_min_sqft/area_max_sqft and area_basis_preference
   (usually carpet). “800+” means area_min_sqft=800 with no fabricated maximum.
-- Preserve location corridors and flexibility: “Bandra to Santacruz West”,
-  “Malad East to Goregaon East on highway”, “okay with by lanes”, and similar
+- Preserve location corridors and flexibility: “Business Bay to DIFC”,
+  “JVC to Al Barsha on Al Khail”, “okay with nearby areas”, and similar
   wording belong in locality_options/location_flexibility. Do not collapse a
   corridor into one locality.
-- Budget is a monthly rental budget. “90K to 1 lakh” becomes budget_min=90000
-  and budget_max=100000. A single “up to 150K” sets budget_max=150000.
-- Normalize common broker spellings such as “lack”, “lacs”, “lac”, and “L” to
-  lakh when the surrounding text clearly describes a budget. Preserve the raw
-  wording and set needs_review=true if the unit remains ambiguous.
+- Budget is an annual rental budget. “90K to 120K” becomes budget_min=90000
+  and budget_max=120000. A single “up to 150K” sets budget_max=150000.
+- Treat M/mn as million dirhams and K/k/thousand as thousand dirhams when the
+  surrounding text clearly describes a budget. Preserve the raw wording and
+  set needs_review=true if the unit remains ambiguous.
 - Furnishing is a preference. Capture minimum cabins, workstations, conference
   rooms, washrooms, attached washroom, pantry, lift, parking, floor range, and
   building standards as explicit constraints. “Commercial building not
@@ -843,7 +824,7 @@ Every item MUST include these discriminator fields:
 - extraction_confidence: one of "high", "medium", or "low".
 Fields allowed for the remaining route-specific data: {fields}.
 {_PRICE_PARSING_INSTRUCTIONS}
-{_MUMBAI_BROKER_GLOSSARY}
+{_BROKER_GLOSSARY}
 {route_rules}
 For listing price, return price={{amount, unit, period, raw_price_text}}. For a requirement,
 return budget_min/budget_max instead of pretending the budget is a listing price.
@@ -1503,14 +1484,14 @@ facts and must never override an explicit quote in the current raw message.
 Location separation is strict: a locality/area/neighborhood such as Bandra West,
 Andheri East, Powai, or Khar West belongs in locality.raw_mention and locality.resolved_locality,
 not building_name. building_name is only the specific named society, tower, project,
-or building (for example Lodha Belmondo or Rustomjee Seasons). If a message says
-"3 BHK in Bandra West" with no named society, building_name must be null and the
-locality must be Bandra West. Use the supplied locality_reference context to
+or building (for example Marina Gate or Burj Vista). If a message says
+"2BR in Dubai Marina" with no named tower, building_name must be null and the
+locality must be Dubai Marina. Use the supplied locality_reference context to
 distinguish locality names from building names; do not promote a locality into a
 building merely because it appears in a heading.
 
 Field ownership is strict inside every listing block. Never put a price or price
-header (for example "3 lacs", "₹8 lakh", "3cr"), furnishing line ("Fully
+header (for example "85K", "AED 1.5M", "2M"), furnishing line ("Fully
 Furnished"), floor line, parking line, configuration line, broker footer, or
 generic ad phrase into building_name. Those belong in their dedicated fields or
 unstructured_facts. If the block has no specifically named building, return
@@ -1885,7 +1866,7 @@ def _source_grounded_price(extraction: dict, raw_text: str) -> dict:
         match = re.search(
             r"\b(?P<label>price\s+sale|sale\s+price|sale|quote|rent|rental|rate)\b"
             r"[^0-9]{0,80}(?P<rate>\d[\d,]*(?:\.\d+)?)\s*"
-            r"(?P<multiplier>k|lakh|lac|cr)?\s*"
+            r"(?P<multiplier>m|mn|million|k)?\s*"
             r"(?:psf|per\s*/?\s*sq\.?\s*ft|per\s+sqft|per\s+square\s+feet)\b",
             clean_line,
             re.IGNORECASE,
@@ -1899,10 +1880,8 @@ def _source_grounded_price(extraction: dict, raw_text: str) -> dict:
             continue
         if multiplier == "k":
             rate *= 1000
-        elif multiplier in {"lakh", "lac"}:
-            rate *= 100000
-        elif multiplier == "cr":
-            rate *= 10000000
+        elif multiplier in {"m", "mn", "million"}:
+            rate *= 1_000_000
         psf_quotes.append((label, rate, clean_line))
 
     selected_psf = None
@@ -1925,8 +1904,8 @@ def _source_grounded_price(extraction: dict, raw_text: str) -> dict:
     # to both items, so select the quote attached to this item's mode first.
     labeled_quotes = re.findall(
         r"(?im)\bfor\s+(rent|sale)\b[^\n]{0,80}?"
-        r"(?:₹|rs\.?|inr)?\s*([\d,]+(?:[.:]\d+)?)\s*"
-        r"(cr(?:ore|ores)?|lac(?:s)?|lakh(?:s)?|l|k)\b",
+        r"(?:aed|dhs)?\s*([\d,]+(?:[.:]\d+)?)\s*"
+        r"(m|mn|millions?|k|thousands?)\b",
         source,
     )
     mode_quotes = [quote for quote in labeled_quotes if quote[0].lower() == listing_type]
@@ -1935,10 +1914,10 @@ def _source_grounded_price(extraction: dict, raw_text: str) -> dict:
         amount = _coerce_float(amount_text.replace(":", "."))
         unit = unit_text.lower().rstrip("s")
         if amount is not None:
-            normalized_unit = "cr" if unit in {"cr", "crore"} else "lac" if unit in {"lac", "lakh"} else unit
+            normalized_unit = "M" if unit in {"m", "mn", "million"} else unit
             extraction["price"] = {
                 **price,
-                "amount": canonical_price_rupees(amount, normalized_unit),
+                "amount": canonical_price_aed(amount, normalized_unit),
                 "unit": "total",
                 "period": "per_month" if listing_type == "rent" else "one_time",
                 "raw_price_text": f"For {mode.title()} {amount_text} {unit_text}",
@@ -1947,22 +1926,22 @@ def _source_grounded_price(extraction: dict, raw_text: str) -> dict:
 
     # Explicit labels in the broker's source outrank provider guesses. This
     # prevents a nearby number (for example ``1280`` in a generated title)
-    # from displacing ``PRICE 1 CR`` in the actual message.
+    # from displacing ``PRICE 1.5M`` in the actual message.
     explicit_quote = None if mode_quotes else re.search(
         r"(?im)(?:^|\n)\s*[*_\s]*(?:price|asking(?:\s+price)?|sale\s+price|rent)\b"
-        r"[^0-9₹]*(?:₹|rs\.?|inr)?\s*"
+        r"[^0-9]*(?:aed|dhs)?\s*"
         r"(?P<amount>\d[\d,]*(?:\.\d+)?)\s*"
-        r"(?P<unit>cr(?:ore|ores)?|lac(?:s)?|lakh(?:s)?|l|k)\b",
+        r"(?P<unit>m|mn|millions?|k|thousands?)\b",
         source,
     )
     if explicit_quote:
         amount = _coerce_float(explicit_quote.group("amount").replace(":", "."))
         unit = explicit_quote.group("unit").lower().rstrip("s")
         if amount is not None:
-            normalized_unit = "cr" if unit in {"cr", "crore"} else "lac" if unit in {"lac", "lakh"} else unit
+            normalized_unit = "M" if unit in {"m", "mn", "million"} else unit
             extraction["price"] = {
                 **price,
-                "amount": canonical_price_rupees(amount, normalized_unit),
+                "amount": canonical_price_aed(amount, normalized_unit),
                 "unit": "total",
                 "period": "per_month" if listing_type == "rent" else "one_time",
                 "raw_price_text": re.sub(r"[*_]", "", explicit_quote.group(0)).strip(),
@@ -1987,13 +1966,13 @@ def _source_grounded_price(extraction: dict, raw_text: str) -> dict:
         value.replace(",", "")
         for value in re.findall(r"\d+(?:[.,]\d+)?", raw_quote)
     }
-    quote_units = re.findall(r"\b(?:cr|crore|crores|lac|lakh|lakhs|l|k)\b", raw_quote.lower())
+    quote_units = re.findall(r"\b(?:m|mn|millions?|k|thousands?)\b", raw_quote.lower())
     source_lower = source.lower()
     quote_is_present = bool(quote_numbers) and quote_numbers.issubset(source_numbers)
     units_are_present = all(re.search(rf"\b{re.escape(unit)}\b", source_lower) for unit in quote_units)
     has_explicit_money = bool(re.search(
-        r"(?:₹|rs\.?|inr)\s*\d|\d+(?:[.,]\d+)?\s*"
-        r"(?:cr|crore|crores|lac|lakh|lakhs|l|k)\b",
+        r"(?:aed|dhs)\s*\d|\d+(?:[.,]\d+)?\s*"
+        r"(?:m|mn|millions?|k|thousands?)\b",
         source,
         re.I,
     ))
@@ -2014,30 +1993,6 @@ def _apply_deterministic_field_fallbacks(extraction: dict, raw_text: str) -> dic
     """
     text = raw_text or ""
     lowered = text.lower()
-
-    # Mumbai rental broadcasts commonly write a lakh amount after ``Rent``
-    # without spelling out the unit (for example ``Rent Rs.1.50 neqt``).
-    # Treating the model's absolute-rupee guess as authoritative can turn this
-    # into 15 L instead of 1.5 L.  This is limited to an explicit rent marker
-    # and a decimal rupee quote, so unrelated numbers are never reinterpreted.
-    if extraction.get("listing_type") == "rent":
-        rent_shorthand = re.search(
-            r"\b(?:rent|monthly\s+rent)\s*[:\-]?\s*(?:₹|rs\.?|inr)\s*"
-            r"(\d+(?:\.\d{1,2})?)\b",
-            text,
-            re.I,
-        )
-        if rent_shorthand and "." in rent_shorthand.group(1):
-            amount_lakh = _coerce_float(rent_shorthand.group(1))
-            if amount_lakh is not None and 0 < amount_lakh <= 20:
-                raw_quote = rent_shorthand.group(0).strip()
-                extraction["price"] = {
-                    "amount": amount_lakh * 100_000,
-                    "unit": "total",
-                    "period": "per_month",
-                    "raw_price_text": raw_quote,
-                }
-                extraction["needs_review"] = False
 
     # Recover high-signal facts that are often omitted by providers despite
     # being plainly present in the source message.
@@ -2082,9 +2037,9 @@ def _apply_deterministic_field_fallbacks(extraction: dict, raw_text: str) -> dic
         if comma_match:
             candidate = comma_match.group(1).strip(" *.,")
             if re.search(
-                r"\b(?:andheri|bandra|khar|juhu|santacruz|bkc|powai|worli|"
-                r"goregaon|malad|thane|mulund|mahim|pali\s+hill|marg|road|"
-                r"nagar|station|metro)\b",
+                r"\b(?:marina|jbr|jvc|jlt|business\s+bay|downtown|difc|"
+                r"palm\s+jumeirah|barsha|furjan|springs|meadows|greens|"
+                r"hills?|ranches|deira|karama|mirdif|road|street)\b",
                 candidate,
                 re.I,
             ):
@@ -2130,20 +2085,14 @@ def _apply_deterministic_field_fallbacks(extraction: dict, raw_text: str) -> dic
 
         if extraction.get("budget_max") is None:
             budget_match = re.search(
-                r"\bbudget\s*[:\-]?\s*(?:up\s+to\s*)?(?:₹|rs\.?\s*)?([\d,.]+)\s*(cr|crore|crores|lac|lakh|lakhs|l|k)?\b",
+                r"\bbudget\s*[:\-]?\s*(?:up\s+to\s*)?(?:aed|dhs\s*)?([\d,.]+)\s*(m|mn|millions?|k|thousands?)?\b",
                 text, re.I,
             )
             if budget_match:
                 amount = _coerce_float(budget_match.group(1))
                 if amount is not None:
-                    unit = (budget_match.group(2) or "").lower()
-                    multiplier = 1
-                    if unit in {"cr", "crore", "crores"}:
-                        multiplier = 1_00_00_000
-                    elif unit in {"l", "lac", "lakh", "lakhs"}:
-                        multiplier = 1_00_000
-                    elif unit == "k":
-                        multiplier = 1_000
+                    unit = (budget_match.group(2) or "").lower().rstrip("s")
+                    multiplier = {"m": 1_000_000, "mn": 1_000_000, "million": 1_000_000, "k": 1_000, "thousand": 1_000}.get(unit, 1)
                     extraction["budget_max"] = amount * multiplier
 
         if not extraction.get("locality_options"):
@@ -2156,31 +2105,13 @@ def _apply_deterministic_field_fallbacks(extraction: dict, raw_text: str) -> dic
                 parts = re.split(r"\s*(?:,|&|\band\b)\s*", locality_text, flags=re.I)
                 if len(parts) == 1 and re.search(r"\b(?:anywhere|preferred|location)\b", locality_match.group(0), re.I):
                     known = re.findall(
-                        r"\b(?:Santacruz|Khar|Bandra|Thane(?:\s+West)?|Naupada|Teen\s+Petrol\s+Pump|Panch\s+Pakhadi|Ram\s+Maruti\s+Road)\b",
+                        r"\b(?:Marina|JBR|JVC|JLT|Business\s+Bay|Downtown|DIFC|Barsha|Furjan|Springs|Meadows|Greens|Deira|Karama|Mirdif)\b",
                         locality_text,
                         re.I,
                     )
                     if known:
                         parts = known
                 extraction["locality_options"] = [p.strip() for p in parts if p.strip()]
-
-        # Preserve ordered locality alternatives from compact broker phrasing
-        # such as ``Bandra or max Khar``. In this market, bare Bandra and Khar
-        # have deterministic west-side defaults.
-        if not extraction.get("locality_options"):
-            locality_line = next(
-                (line for line in text.splitlines() if re.search(r"\b(?:bandra|khar)\b", line, re.I)),
-                "",
-            )
-            locality_names = re.findall(r"\b(?:Bandra\s+(?:East|West)|Khar\s+(?:East|West)|Bandra|Khar)\b", locality_line, re.I)
-            locality_options = []
-            for name in locality_names:
-                key = name.lower()
-                canonical = {"bandra": "Bandra West", "khar": "Khar West"}.get(key, name.title())
-                if canonical not in locality_options:
-                    locality_options.append(canonical)
-            if locality_options:
-                extraction["locality_options"] = locality_options
 
         furnishing_preference = str(extraction.get("furnishing_preference") or "").strip().lower().replace(" ", "_").replace("-", "_")
         if furnishing_preference in _FURNISHING_ALIASES:
@@ -2512,19 +2443,18 @@ def generate_title(extraction: dict) -> str:
 
 
 _PRICE_SCALES = [
-    (1_00_00_000, "Cr", 1_00_00_000),
-    (1_00_000, "Lakh", 1_00_000),
+    (1_000_000, "M", 1_000_000),
     (1_000, "K", 1_000),
 ]
-_MAX_PLAUSIBLE_MONTHLY_RENT = 15_00_000
+_MAX_PLAUSIBLE_ANNUAL_RENT = 5_000_000
 
 
 def _format_price_amount(amount: float, is_rent: bool = False) -> str:
     if amount <= 0:
         return "Price on request"
-    if is_rent and amount > _MAX_PLAUSIBLE_MONTHLY_RENT:
+    if is_rent and amount > _MAX_PLAUSIBLE_ANNUAL_RENT:
         _logger.warning(
-            "Rent price exceeds plausibility ceiling; formatting as non-monthly amount: %s",
+            "Annual rent exceeds plausibility ceiling; formatting as non-rent amount: %s",
             amount,
         )
         is_rent = False
@@ -2535,15 +2465,15 @@ def _format_price_amount(amount: float, is_rent: bool = False) -> str:
                 formatted_value = str(int(value))
             else:
                 # Preserve the source precision needed to distinguish prices
-                # such as 8.75 Cr from 8.8 Cr; only remove insignificant zeros.
+                # such as 8.75M from 8.8M; only remove insignificant zeros.
                 formatted_value = f"{value:.2f}".rstrip("0").rstrip(".")
-            fmt = f"₹{formatted_value} {label}"
+            fmt = f"AED {formatted_value} {label}"
             if is_rent:
-                fmt += "/month"
+                fmt += "/yr"
             return fmt
-    fmt = f"₹{int(amount):,}"
+    fmt = f"AED {int(amount):,}"
     if is_rent:
-        fmt += "/month"
+        fmt += "/yr"
     return fmt
 
 

@@ -97,7 +97,7 @@ def _locality_from_components(components: list[dict] | None) -> str | None:
                 or component.get("shortText")
                 or component.get("short_name")
             )
-            if value and str(value).strip().casefold() not in {"mumbai", "greater mumbai"}:
+            if value and str(value).strip().casefold() not in {"dubai", "uae"}:
                 return str(value).strip()
     return None
 
@@ -148,7 +148,7 @@ def _web_candidate_names(requested_name: str, pages: list[dict]) -> list[dict]:
         text = " ".join(str(page.get(key) or "") for key in ("title", "excerpt", "text"))
         for pattern in correction_patterns:
             for match in re.finditer(pattern, text, flags=re.IGNORECASE):
-                name = re.split(r"\s+(?:bandra|andheri|mumbai|maharashtra|india)\b", match.group(1), maxsplit=1, flags=re.IGNORECASE)[0]
+                name = re.split(r"\s+(?:marina|jvc|dubai|uae)\b", match.group(1), maxsplit=1, flags=re.IGNORECASE)[0]
                 name = " ".join(name.strip(" .,;:!?\"“”'").split())
                 if not name or name.casefold() == requested.casefold():
                     continue
@@ -264,27 +264,26 @@ class BaseProvider(ABC):
         return True
 
 
-class IGRProvider(BaseProvider):
-    """Indian Government Registration (IGR) data provider.
+class DLDProvider(BaseProvider):
+    """Dubai Land Department data provider.
 
-    IGR provides property registration data including:
-    - Property transactions
-    - Stamp duty records
-    - Property area details
-    - Buyer/seller information (anonymized)
+    DLD provides:
+    - Registered transaction history (sales, mortgages, gifts)
+    - Title deed / permit references
+    - Price-per-sqft benchmarks per building and area
 
-    Note: IGR data is publicly accessible for Maharashtra at
-    https://igrmaharashtra.gov.in/ but requires careful parsing.
+    Data access goes through agents/dld_client.py: the DubaiPulse open-data
+    CKAN endpoint by default, or the official Dubai REST API when
+    DLD_API_BASE/DLD_API_KEY are configured.
     """
 
-    name = "igr"
+    name = "dld"
     priority = 10
-    rate_limit_delay = 2.0  # Respect IGR servers
+    rate_limit_delay = 2.0  # Respect public data endpoints
 
     def enrich(self, building_name: str, canonical_name: str = None,
                micro_market: str = None, **kwargs) -> EnrichmentResult:
-        """Enrich building with IGR data."""
-        # Check cache first
+        """Enrich building with DLD transaction aggregates."""
         cached = self._check_cache(building_name)
         if cached:
             return EnrichmentResult(
@@ -298,35 +297,47 @@ class IGRProvider(BaseProvider):
                 cached=True,
             )
 
-        # IGR enrichment logic would go here
-        # For now, return empty result - to be implemented with actual IGR parsing
+        try:
+            from agents.dld_client import building_summary
+            summary = building_summary(canonical_name or building_name)
+        except Exception as exc:  # noqa: BLE001
+            summary = {"error": str(exc), "confidence": 0.0}
+
+        fields = {
+            key: summary[key]
+            for key in (
+                "transaction_count",
+                "last_transaction_date",
+                "last_transaction_price_aed",
+                "avg_price_per_sqft",
+            )
+            if summary.get(key) is not None
+        }
         result = EnrichmentResult(
             provider=self.name,
-            confidence=0.0,
-            fields={},
-            error="IGR provider not yet implemented",
+            confidence=summary.get("confidence", 0.0),
+            fields=fields,
+            source_url=summary.get("source_url", "https://dubailand.gov.ae/en/"),
+            raw_data=summary,
+            error=summary.get("error", ""),
         )
-
-        # Cache the result
         self._save_cache(building_name, result.to_dict())
         return result
 
     def is_available(self) -> bool:
-        """IGR search is not a supported enrichment source."""
-        return False
+        return True
 
 
 class RERAProvider(BaseProvider):
     """RERA (Real Estate Regulatory Authority) data provider.
 
-    RERA provides:
-    - Project registration details
-    - Developer information
-    - Project status
-    - Unit details
-    - Completion dates
+    Dubai RERA operates under DLD and regulates:
+    - Project registration and escrow account details
+    - Developer information and Trakheesi permits
+    - Project status and completion dates
+    - Ejari rental contract registration
 
-    Maharashtra RERA: https://maha-rera.mahaonline.gov.in/
+    Portal: https://dubailand.gov.ae/en/
     """
 
     name = "rera"
@@ -573,7 +584,7 @@ class Crawl4AIBuildingDiscoveryProvider(BaseProvider):
         # discovery anchored to the broker's actual market instead of asking
         # the web to resolve a bare, potentially ambiguous building name.
         context = str(micro_market or "").strip()
-        if not context or context.casefold() in {"no locality", "unknown", "mumbai"}:
+        if not context or context.casefold() in {"no locality", "unknown", "dubai"}:
             locality_votes = {}
             for field in ("source_localities", "broker_markets"):
                 for locality, votes in (evidence.get(field) or {}).items():
@@ -714,7 +725,7 @@ class OpenStreetMapProvider(BaseProvider):
 
 # Provider registry
 PROVIDERS = {
-    "igr": IGRProvider,
+    "dld": DLDProvider,
     "rera": RERAProvider,
     "google_places": GooglePlacesProvider,
     "openstreetmap": OpenStreetMapProvider,

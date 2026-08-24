@@ -1,7 +1,7 @@
 """
 Base source abstraction for the Source Sync Engine.
 
-Every external data source (WhatsApp, IGR, MahaRERA, etc.) implements:
+Every external data source (WhatsApp, DLD, Bayut, etc.) implements:
 
     discover_jobs()  → list[SyncJob]
     fetch_records(job) → Iterator[SourceRecord]
@@ -21,11 +21,11 @@ class SyncJob:
     """
     A sync job represents one unit of work for a source.
     For WhatsApp: one group = one job.
-    For IGR: one year/region = one job.
+    For DLD: one area/time-window = one job.
     """
-    source: str                # "whatsapp", "igr", "maharera", etc.
+    source: str                # "whatsapp", "dld", "bayut", etc.
     instance: str              # e.g., "propai-whatsapp" for WhatsApp instance
-    group_id: str              # e.g., WhatsApp JID, IGR dataset key
+    group_id: str              # e.g., WhatsApp JID, DLD dataset key
     group_name: str = ""       # human-readable label
     meta: dict = field(default_factory=dict)  # source-specific metadata
 

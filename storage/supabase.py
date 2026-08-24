@@ -235,10 +235,18 @@ def _clean_market_building_name(row: dict) -> str:
             if building_tokens and building_tokens.isdisjoint(source_tokens):
                 return ""
     locality_aliases = {
-        "khar": "kharwest", "kharw": "kharwest", "kharwest": "kharwest",
-        "bandra": "bandrawest", "bandraw": "bandrawest", "bandrawest": "bandrawest",
-        "andheri": "andheriwest", "andheriw": "andheriwest", "andheriwest": "andheriwest",
-        "santacruz": "santacruzwest", "santacruzw": "santacruzwest", "santacruzwest": "santacruzwest",
+        "marina": "dubaimarina", "dubaimarina": "dubaimarina",
+        "hills": "dubaihillsestate", "dubaihills": "dubaihillsestate",
+        "dubaihillsestate": "dubaihillsestate",
+        "bbay": "businessbay", "businessbay": "businessbay",
+        "furjan": "alfurjan", "alfurjan": "alfurjan",
+        "springs": "thesprings", "thesprings": "thesprings",
+        "meadows": "themeadows", "themeadows": "themeadows",
+        "lakes": "thelakes", "thelakes": "thelakes",
+        "greens": "thegreens", "thegreens": "thegreens",
+        "views": "theviews", "theviews": "theviews",
+        "jbr": "jbr", "difc": "difc", "jvc": "jvc", "jvt": "jvt",
+        "jlt": "jlt",
     }
     if value_key in locality_aliases and locality_aliases[value_key] == locality_aliases.get(market_key, market_key):
         return ""
@@ -257,7 +265,7 @@ def _clean_market_building_name(row: dict) -> str:
             payload = {}
     source = str(payload.get("slice_text") or payload.get("full_text") or "") if isinstance(payload, dict) else ""
     has_property_signal = bool(re.search(
-        r"\b(?:bhk|rk|flat|apartment|building|project|rent|lease|sale|sell|buy|price|lac|lakh|cr|carpet|sq\.?\s*ft)\b",
+        r"\b(?:bhk|br|rk|flat|apartment|building|project|rent|lease|sale|sell|buy|price|aed|dhs|cheque|chq|yearly|carpet|sq\.?\s*ft)\b",
         source,
         re.I,
     ))
@@ -437,6 +445,7 @@ def _raw_message_owned_by_user(
 
 
 def _normalize_listing_price(price: object, price_unit: object) -> tuple[float | None, str | None]:
+    """Normalise to AED with K/M display units (Dubai convention)."""
     if price in (None, ""):
         return None, None
     try:
@@ -445,23 +454,19 @@ def _normalize_listing_price(price: object, price_unit: object) -> tuple[float |
         return None, None
 
     unit = str(price_unit or "").strip().lower()
-    if unit in {"cr", "crore", "crores"}:
-        if value >= 1_00_00_000:
-            value = value / 1_00_00_000
-        return value, "Cr"
-    if unit in {"lac", "lakh", "lakhs", "l"}:
-        if value >= 1_00_000:
-            value = value / 1_00_000
-        return value, "Lac"
-    if unit in {"k", "thousand"}:
+    if unit == "m":
+        if value >= 1_000_000:
+            value = value / 1_000_000
+        return value, "M"
+    if unit == "k":
         if value >= 1_000:
             value = value / 1_000
         return value, "K"
-    if unit in {"abs", "absolute", "rupees", "rs", "inr", "", "none", "null"}:
-        if value >= 1_00_00_000:
-            return round(value / 1_00_00_000, 2), "Cr"
-        if value >= 1_00_000:
-            return round(value / 1_00_000, 2), "Lac"
+    if unit in {"abs", "absolute", "aed", "dhs", "dirham", "dirhams", "", "none", "null"}:
+        if value >= 1_000_000:
+            return round(value / 1_000_000, 2), "M"
+        if value >= 100_000:
+            return round(value / 1_000, 0), "K"
         return value, "abs"
     return value, price_unit if price_unit is None or isinstance(price_unit, str) else str(price_unit)
 
@@ -4375,7 +4380,7 @@ class SupabaseStorage(Storage):
                 "property_type": row.get("property_type"),
                 "bhk": row.get("bhk"),
                 "price": price,
-                "price_formatted": row.get("price_raw_text") or (f"₹{price:,.0f}" if price else "Price on request"),
+                "price_formatted": row.get("price_raw_text") or (f"AED {price:,.0f}" if price else "Price on request"),
                 "price_unit": row.get("price_unit"),
                 "area_sqft": row.get("area_sqft"),
                 "furnishing": row.get("furnishing"),
@@ -5551,8 +5556,8 @@ class SupabaseStorage(Storage):
     ) -> dict | None:
         """Build the demand-side projection from one parsed observation.
 
-        Price bounds are stored in absolute INR so requirement matching can
-        compare them to listings without mixing lakh/crore units. A single
+        Price bounds are stored in absolute AED so requirement matching can
+        compare them to listings without mixing K/M units. A single
         explicit budget is represented as equal min/max bounds.
         """
         if not _is_market_requirement(obs):
@@ -5966,15 +5971,12 @@ class SupabaseStorage(Storage):
         }[table]
         if table == "commercial_rent_listings":
             allowed.add("mezzanine_area_sqft")
-        for listing_table in (
-            "residential_sale_listings", "residential_rent_listings",
-            "commercial_sale_listings", "commercial_rent_listings",
-        ):
-            allowed[listing_table].add("broker_rera_number")
-        for typed_table in allowed:
-            allowed[typed_table].add("extraction_confidence_score")
-            allowed[typed_table].update({"last_seen_at", "expires_at"})
-            allowed[typed_table].add("opportunity_key")
+        # ``allowed`` is the selected table's column allow-list. These shared
+        # audit/bookkeeping columns are writable on every typed table.
+        allowed.add("broker_rera_number")
+        allowed.add("extraction_confidence_score")
+        allowed.update({"last_seen_at", "expires_at"})
+        allowed.add("opportunity_key")
         typed = {k: v for k, v in typed.items() if v is not None and k in allowed}
         try:
             res = self.client.table(table).insert(typed).execute()
@@ -7372,7 +7374,7 @@ class SupabaseStorage(Storage):
             filtered_rows = rows
             # The Groups mirror searches both directory names and captured
             # post text. Searching only the group title made queries such as
-            # "bandra 2 bhk" appear to do nothing because those words usually
+            # "jvc 2 br" appear to do nothing because those words usually
             # occur in a message, not in the group name.
             search_terms = [term.lower() for term in re.findall(r"[\w]+", search or "") if len(term) > 1]
             if search_terms and filtered_rows:
@@ -7405,7 +7407,7 @@ class SupabaseStorage(Storage):
                 # longer appear in the market-facing mirror unless they
                 # actually carry property posts.
                 property_signal = re.compile(
-                    r"\b(?:real\s*estate|realty|property|properties|broker|rent|rental|sale|sell|lease|flat|apartment|house|villa|plot|land|bhk|rk|showroom|office|shop|warehouse|commercial|carpet|sq\.?\s*ft|lakh|lac|crore|cr|brokerage|inventory|requirement)\b",
+                    r"\b(?:real\s*estate|realty|property|properties|broker|rent|rental|sale|sell|lease|flat|apartment|house|villa|townhouse|plot|land|bhk|br|rk|showroom|office|shop|warehouse|commercial|carpet|sq\.?\s*ft|aed|dhs|ejari|brokerage|inventory|requirement)\b",
                     re.IGNORECASE,
                 )
                 title_matches = {
@@ -9234,8 +9236,8 @@ class SupabaseStorage(Storage):
                     return ""
                 prices.sort()
                 if len(prices) == 1:
-                    return f"₹{prices[0]:,.0f}"
-                return f"₹{prices[0]:,.0f} – ₹{prices[-1]:,.0f}"
+                    return f"AED {prices[0]:,.0f}"
+                return f"AED {prices[0]:,.0f} – {prices[-1]:,.0f}"
             
             top_markets = sorted(markets, key=markets.__getitem__, reverse=True)[:3]
             top_bhk = sorted(bhk_dist, key=bhk_dist.__getitem__, reverse=True)[:3]

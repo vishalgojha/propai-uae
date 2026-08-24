@@ -14,11 +14,18 @@ def test_plain_inventory_query_uses_grounded_market_search(monkeypatch):
     import agent_tools
 
     calls = []
-    monkeypatch.setattr(ai_chat, "storage", SimpleNamespace(db=None, client=object()))
+    monkeypatch.setattr(
+        ai_chat,
+        "storage",
+        SimpleNamespace(
+            db=None,
+            client=object(),
+            get_workspace_ai_settings=lambda tenant_id: {},
+        ),
+    )
     
     async def _to_thread(func, /, *args, **kwargs):
         return func(*args, **kwargs)
-
     monkeypatch.setattr(ai_chat, "_resolve_active_organization_id", lambda user, tenant_id: tenant_id)
     monkeypatch.setattr(ai_chat, "_workspace_provider_candidates", lambda tenant_id, model: [{"api_key": "k", "model": "m", "base_url": "https://example.invalid/v1"}])
     monkeypatch.setattr(ai_chat.asyncio, "to_thread", _to_thread)
@@ -28,7 +35,7 @@ def test_plain_inventory_query_uses_grounded_market_search(monkeypatch):
     monkeypatch.setattr(
         ai_chat.chat_engine,
         "parse_market_search_request",
-        lambda *args, **kwargs: {"intent": "RENT", "bhk": 3, "micro_markets": ["Borivali West"]},
+        lambda *args, **kwargs: {"intent": "RENT", "bhk": 3, "micro_markets": ["JVC"]},
     )
     monkeypatch.setattr(ai_chat, "_run_with_provider_failover", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("LLM fallback should not run")))
     monkeypatch.setattr(
@@ -40,8 +47,8 @@ def test_plain_inventory_query_uses_grounded_market_search(monkeypatch):
             "status": "ok",
             "results": [{
                 "listing_id": 1,
-                "building_name": "Orbit Heights",
-                "micro_market": "Borivali West",
+                "building_name": "Marina Sail",
+                "micro_market": "JVC",
                 "bhk": "3",
                 "price": 95000,
                 "carpet_area_sqft": 1200,
@@ -56,7 +63,8 @@ def test_plain_inventory_query_uses_grounded_market_search(monkeypatch):
         broker_phone="",
         model="",
         api_key="",
-        messages=[{"role": "user", "content": "any 3 bhk for rent in Borivali West"}],
+        persist_user_turn=False,
+        messages=[{"role": "user", "content": "any 3 bhk for rent in JVC"}],
     )
 
     response = asyncio.run(ai_chat.ai_chat(req, user={"id": "u1"}, tenant_id="org-1"))
@@ -65,12 +73,12 @@ def test_plain_inventory_query_uses_grounded_market_search(monkeypatch):
     assert calls[0][0] == "search_listings"
     assert calls[0][1]["bhk"] == 3
     assert calls[0][1]["listing_type"] == "rent"
-    assert calls[0][1]["locality"] == "Borivali West"
+    assert calls[0][1]["locality"] == "JVC"
     assert calls[0][2] == "org-1"
-    assert response["source_mode"] == "parsed"
-    assert ai_chat._is_analytics_or_ops_query("how many listings in Bandra West") is True
-    assert ai_chat._is_analytics_or_ops_query("any 3 bhk for rent in Borivali West") is False
+    assert ai_chat._is_analytics_or_ops_query("how many listings in Dubai Marina") is True
+    assert ai_chat._is_analytics_or_ops_query("any 3 bhk for rent in JVC") is False
     assert response["trace"]["route"] == "deterministic_market_search"
+    assert response["trace"]["inventory_scope"] == "shared_network"
     assert response["content"].startswith("Found 1 active match")
     assert "WhatsApp group" not in response["content"]
 

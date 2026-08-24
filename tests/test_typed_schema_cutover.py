@@ -72,7 +72,7 @@ def test_route_separates_rent_supply_and_sale_demand():
         "asset_type": "residential",
         "transaction_type": "sale",
         "message_type": "requirement",
-        "normalized_message": "Require 3 BHK on lease in Worli",
+        "normalized_message": "Require 3 BHK on lease in JVC",
     })[0] == "residential_rent_requirements"
 
 
@@ -84,14 +84,14 @@ def test_listing_type_wins_over_conflicting_provider_transaction_label():
             "classified_asset_type": "residential",
             "building_name": "Tower On Call",
             "bhk": 3,
-            "price": {"amount": 57000000, "unit": "total", "raw_price_text": "₹5.70 Cr"},
+            "price": {"amount": 5700000, "unit": "total", "raw_price_text": "AED 5.7M"},
         },
-        "3 BHK flat FOR SALE in Bandra West. Price ₹5.70 Cr",
+        "3 BHK flat FOR SALE in Business Bay. Price AED 5.7M",
         raw_message_id=25025,
     )
     assert table == "residential_sale_listings"
     assert row["transaction_type"] == "sale"
-    assert row["total_asking_price"] == 57000000
+    assert row["total_asking_price"] == 5700000
 
 
 def test_save_parsed_writes_directly_to_typed_rent_table():
@@ -103,10 +103,10 @@ def test_save_parsed_writes_directly_to_typed_rent_table():
         transaction_type="rent",
         intent="RENT",
         bhk="3 BHK",
-        price=2.5,
-        price_unit="lakh",
+        price=110000,
+        price_unit=None,
         area_sqft=1200,
-        location_raw="Bandra West",
+        location_raw="JVC",
         broker_name="Broker A",
     ))
     # The typed table owns the new identity; the legacy observation id is
@@ -117,7 +117,7 @@ def test_save_parsed_writes_directly_to_typed_rent_table():
     assert table == "residential_rent_listings"
     assert "id" not in payload
     assert payload["legacy_source_id"] == 77001
-    assert payload["monthly_rent"] == 250000
+    assert payload["monthly_rent"] == 110000
     assert payload["bhk"] == 3.0
     assert options["on_conflict"] == "source_fingerprint"
 
@@ -136,13 +136,13 @@ def test_save_parsed_raw_price_text_overrides_prefilled_bad_rent_value():
         monthly_rent=6,
         price_per_sqft=None,
         confidence=0.95,
-        ai_extraction={"price": {"amount": 6, "unit": None, "raw_price_text": "6 cr"}},
+        ai_extraction={"price": {"amount": 6, "unit": None, "raw_price_text": "6.5M"}},
     ))
 
     table, payload, _ = storage.client.writes[0]
     assert table == "residential_rent_listings"
-    assert payload["monthly_rent"] == 60_000_000
-    assert payload["price_raw_text"] == "6 cr"
+    assert payload["monthly_rent"] == 6_500_000
+    assert payload["price_raw_text"] == "6.5M"
     assert payload["needs_review"] is True
     assert payload["extraction_confidence"] == "low"
 
@@ -180,9 +180,9 @@ def test_save_parsed_residential_requirement_omits_commercial_fields():
         message_type="requirement",
         intent="BUY",
         bhk="4 BHK",
-        price=14,
-        price_unit="crore",
-        location_raw="Prabhadevi, Lower Parel, Worli",
+        price=6500000,
+        price_unit=None,
+        location_raw="Business Bay, Downtown, JVC",
     ))
 
     table, payload, _ = storage.client.writes[0]

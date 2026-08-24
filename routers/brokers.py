@@ -260,8 +260,8 @@ async def broker_summary(name: str = "", phone: str = "", user: dict = Depends(r
             return ""
         prices.sort()
         if len(prices) == 1:
-            return f"₹{prices[0]:,.0f}"
-        return f"₹{prices[0]:,.0f} – ₹{prices[-1]:,.0f}"
+            return f"AED {prices[0]:,.0f}"
+        return f"AED {prices[0]:,.0f} – {prices[-1]:,.0f}"
 
     top_markets = sorted(markets, key=markets.__getitem__, reverse=True)[:3]
     team_members: list[dict] = []

@@ -1,31 +1,33 @@
-"""Source-grounded price normalization shared by extraction write paths."""
+"""Source-grounded price normalization shared by extraction write paths.
+
+Dubai convention: prices are AED. Rents are quoted as ANNUAL totals
+(frequently paid via post-dated cheques); sale prices are absolute totals.
+Shorthand units are K (thousand) and M (million).
+"""
 
 from __future__ import annotations
 
 import re
 
 _UNIT_MULTIPLIERS = {
-    "cr": 10_000_000,
-    "crore": 10_000_000,
-    "crores": 10_000_000,
-    "lac": 100_000,
-    "lacs": 100_000,
-    "lakh": 100_000,
-    "lakhs": 100_000,
-    "l": 100_000,
+    "m": 1_000_000,
+    "mn": 1_000_000,
+    "million": 1_000_000,
+    "millions": 1_000_000,
     "k": 1_000,
     "thousand": 1_000,
     "thousands": 1_000,
 }
 _EXPLICIT_PRICE_RE = re.compile(
-    r"([\d,]+(?:[.:]\d+)?)\s*[.\-/]*\s*"
-    r"(cr|crores?|lac?s?|lakhs?|l|k|thousands?)\b",
+    r"(?:aed|dhs|dirhams?)?\s*([\d,]+(?:[.:]\d+)?)\s*[.\-/]*\s*"
+    r"(m|mn|millions?|k|thousands?)\b",
     re.IGNORECASE,
 )
 _RENTAL_LANGUAGE_RE = re.compile(
-    r"\b(?:rent|rental|lease|monthly|per\s+month|deposit|tenancy|"
+    r"\b(?:rent|rental|lease|monthly|per\s+month|per\s+year|yearly|annual|"
+    r"annum|deposit|tenancy|ejari|"
     r"lock[- ]?in|notice\s+period|lease\s+out|for\s+rent|on\s+rent|"
-    r"pkg|pckg|packg|package)\b",
+    r"\d\s*(?:cheqs?|cheques?)\b|chq)\b",
     re.IGNORECASE,
 )
 _SALE_LANGUAGE_RE = re.compile(
@@ -47,80 +49,56 @@ def parse_explicit_price(raw_text: str | None) -> tuple[float, str] | None:
     return amount, unit
 
 
-def price_to_rupees(value: object, unit: object = None) -> float | None:
+def price_to_aed(value: object, unit: object = None) -> float | None:
     if value in (None, ""):
         return None
     try:
         amount = float(value)
     except (TypeError, ValueError):
         return None
-    multiplier = _UNIT_MULTIPLIERS.get(str(unit or "").strip().lower(), 1)
-    return amount * multiplier
+    unit_key = str(unit or "").strip().lower()
+    multiplier = _UNIT_MULTIPLIERS.get(unit_key)
+    if multiplier:
+        return amount * multiplier
+    # Absolute dirham values pass through unchanged.
+    return amount
 
 
-def canonical_price_rupees(value: object, unit: object = None, raw_text: str | None = None) -> float | None:
+def canonical_price_aed(value: object, unit: object = None, raw_text: str | None = None) -> float | None:
     explicit = parse_explicit_price(raw_text)
     if explicit:
         amount, explicit_unit = explicit
-        return price_to_rupees(amount, explicit_unit)
-    return price_to_rupees(value, unit)
+        return price_to_aed(amount, explicit_unit)
+    return price_to_aed(value, unit)
 
 
-def canonical_rental_price_rupees(
+def canonical_rental_price_aed(
     value: object,
     unit: object = None,
     raw_text: str | None = None,
 ) -> float | None:
-    """Normalize Mumbai residential-rent decimal ``k`` shorthand.
+    """Normalize an annual rent quote to absolute AED.
 
-    Local brokers sometimes write ``1.30k`` for 1.30 lakh, not 1,300.  This
-    rule is intentionally opt-in for rental paths; ordinary ``130k`` remains
-    130,000 and sale/commercial paths keep the normal ``k`` meaning.
+    Dubai rents are annual totals. ``85K`` means 85,000/year and ``1.5M``
+    means 1,500,000/year; bare dirham amounts pass through unchanged. There
+    is no lakh-style rescaling ambiguity in the UAE market.
     """
-    text = str(raw_text or "")
-    shorthand = re.search(r"(?<![\d.])(\d+\.\d+)\s*k\b", text, re.IGNORECASE)
-    if shorthand and float(shorthand.group(1)) < 5:
-        return float(shorthand.group(1)) * 100_000
-    normalized = canonical_price_rupees(value, unit, raw_text)
-    if normalized is None:
-        return None
-
-    # In Mumbai rental broadcasts, a bare monthly quote such as
-    # ``Monthly Rent :- 140`` means ₹1.40 lakh (140 thousand), not ₹140/month. Only apply
-    # this residential-rent convention when the source explicitly identifies
-    # the number as rent/monthly rent and no money unit was supplied. Explicit
-    # k/lakh/crore/PSF values remain governed by the canonical parser above.
-    has_explicit_money_unit = parse_explicit_price(text) is not None
-    rent_context = re.search(r"\b(?:rent|rental|monthly|lease|on\s+lease)\b", text, re.IGNORECASE)
-    unit_key = str(unit or "").strip().lower()
-    if (
-        not has_explicit_money_unit
-        and rent_context
-        and unit_key in {"", "total", "abs", "absolute", "inr", "rupees"}
-        and 0 < normalized < 1_000
-    ):
-        return normalized * 1_000
-    return normalized
+    return canonical_price_aed(value, unit, raw_text)
 
 
-def canonical_commercial_rental_price_rupees(
+def canonical_commercial_rental_price_aed(
     value: object,
     unit: object = None,
     raw_text: str | None = None,
 ) -> float | None:
-    """Normalize commercial ``package/pkg`` quotes as ordinary monthly rent.
+    """Normalize a commercial rent quote to absolute annual AED.
 
-    ``PKG`` is a broker abbreviation for a monthly rental package in the
-    commercial market.  It is not a deposit or a CAM calculation.  When a
-    package quote has no explicit lakh unit, small decimal values such as
-    ``1.30k`` follow the same Indian broker shorthand as residential rent.
+    Commercial rents are also quoted annually. A PSF quote is a rate per
+    square foot per year and is returned as-is when explicitly marked.
     """
     text = str(raw_text or "")
-    # A PSF quote is already a rupee rate. Some historical extraction payloads
-    # incorrectly supplied the rate as a lakh-scaled amount even though the
-    # source explicitly said “₹275 psf”. Prefer the source-grounded number.
     psf_quote = re.search(
-        r"(?:₹|rs\.?\s*)\s*(\d+(?:\.\d+)?)\s*(?:p\.?\s*s\.?\s*f|per\s*(?:sq\.?\s*ft|square\s*foot))\b",
+        r"(?:aed|dhs|dirhams?\s*)\s*(\d+(?:\.\d+)?)\s*(?:p\.?\s*s\.?\s*f\.?|per\s*(?:sq\.?\s*ft|square\s*foot))\b",
         text,
         re.IGNORECASE,
     )
@@ -129,21 +107,14 @@ def canonical_commercial_rental_price_rupees(
             return float(psf_quote.group(1).replace(",", ""))
         except ValueError:
             pass
-    if re.search(r"\b(?:pkg|pckg|packg|package)\b", text, re.IGNORECASE):
-        shorthand = re.search(r"(?<![\d.])(\d+\.\d+)\s*k\b", text, re.IGNORECASE)
-        if shorthand and float(shorthand.group(1)) < 5:
-            return float(shorthand.group(1)) * 100_000
-        explicit = parse_explicit_price(text)
-        if explicit:
-            amount, explicit_unit = explicit
-            return price_to_rupees(amount, explicit_unit)
-        try:
-            amount = float(value)
-        except (TypeError, ValueError):
-            return None
-        # Package-only quotes are conventionally lakh-scale in this market.
-        return amount * 100_000 if abs(amount) < 10_000 else amount
-    return canonical_price_rupees(value, unit, raw_text)
+    return canonical_price_aed(value, unit, raw_text)
+
+
+# Backward-compatible aliases (legacy INR naming kept for existing callers).
+price_to_rupees = price_to_aed
+canonical_price_rupees = canonical_price_aed
+canonical_rental_price_rupees = canonical_rental_price_aed
+canonical_commercial_rental_price_rupees = canonical_commercial_rental_price_aed
 
 
 def source_transaction_type(raw_text: str | None, proposed: str | None) -> str:
@@ -153,8 +124,8 @@ def source_transaction_type(raw_text: str | None, proposed: str | None) -> str:
     has_sale_marker = bool(_SALE_LANGUAGE_RE.search(text))
     has_rent_marker = bool(_RENTAL_LANGUAGE_RE.search(text))
     # “For sale ... currently on lease” describes a sale of an occupied/
-    # pre-leased asset. The lease is the tenant's current occupancy, not a
-    # monthly asking-rent mode. This must win over the generic lease marker.
+    # pre-leased asset. The lease is the tenant's current occupancy, not the
+    # asking-rent mode. This must win over the generic lease marker.
     if has_sale_marker and re.search(
         r"\b(?:currently\s+on\s+lease|pre[- ]?(?:leased|rented)|already\s+leased)\b",
         text,
@@ -171,5 +142,6 @@ def source_transaction_type(raw_text: str | None, proposed: str | None) -> str:
 
 
 def rent_price_needs_review(monthly_rent: object, raw_text: str | None) -> bool:
-    amount = price_to_rupees(monthly_rent)
+    """Annual rent above AED 5M/yr is implausible for standard stock."""
+    amount = price_to_aed(monthly_rent)
     return amount is not None and amount > 5_000_000

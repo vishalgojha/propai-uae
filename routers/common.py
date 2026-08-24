@@ -891,19 +891,29 @@ WHATSAPP SELF-CHAT MODE:
 # ── Group name parsing (used by groups_market + audit) ──────────────────
 
 GROUP_MARKET_KEYWORDS = {
-    "Bandra": ["bandra", "bkc", "bks"],
-    "Khar": ["khar"],
-    "Santacruz": ["santacruz", "scruz", "s cruz"],
-    "Juhu": ["juhu"],
-    "Andheri": ["andheri"],
-    "Worli": ["worli"],
-    "Colaba": ["colaba"],
-    "Chembur": ["chembur"],
-    "Wadala": ["wadala"],
-    "Malad": ["malad"],
-    "Goregaon": ["goregaon"],
-    "Thane": ["thane"],
-    "SOBO": ["sobo", "south mumbai"],
+    "Dubai Marina": ["marina"],
+    "JBR": ["jbr", "jumeirah beach residence"],
+    "Downtown Dubai": ["downtown", "burj khalifa", "opera district"],
+    "Business Bay": ["business bay"],
+    "DIFC": ["difc"],
+    "Palm Jumeirah": ["palm jumeirah"],
+    "JVC": ["jvc", "jumeirah village circle"],
+    "JVT": ["jvt", "jumeirah village triangle"],
+    "JLT": ["jlt", "jumeirah lakes towers"],
+    "Dubai Hills Estate": ["dubai hills"],
+    "Arabian Ranches": ["arabian ranches", "ranches"],
+    "The Springs": ["springs"],
+    "The Meadows": ["meadows"],
+    "The Greens": ["greens"],
+    "Al Barsha": ["barsha"],
+    "Al Furjan": ["furjan"],
+    "Deira": ["deira"],
+    "Bur Dubai": ["bur dubai"],
+    "Karama": ["karama"],
+    "Mirdif": ["mirdif"],
+    "Sports City": ["sports city", "dspc"],
+    "Motor City": ["motor city"],
+    "Silicon Oasis": ["silicon oasis", "dsso"],
 }
 
 GROUP_SEGMENT_KEYWORDS = {
@@ -2121,7 +2131,7 @@ async def _check_listing_alerts(listing_data: dict, raw_message_id: int = 0):
                 continue
             price_str = ""
             if listing_price and float(listing_price) > 0:
-                price_str = f"\n💰 Price: ₹{float(listing_price):,.0f}"
+                price_str = f"\n💰 Price: AED {float(listing_price):,.0f}/yr"
             bhk_str = f"🏠 {listing_bhk}" if listing_bhk else ""
             area_str = listing_data.get("area") or listing_data.get("micro_market") or ""
             building_str = listing_data.get("building_name") or ""
@@ -2145,8 +2155,8 @@ async def _check_listing_alerts(listing_data: dict, raw_message_id: int = 0):
         print(f"[waba-alert] error in _check_listing_alerts: {exc}", flush=True)
 
 # ── Workspace agent response pipeline ──────────────────────────────
-_KNOWN_MARKETS = ["Bandra East","Bandra West","Bandra","Andheri East","Andheri West","Andheri","Santacruz East","Santacruz West","Santacruz","Juhu","Khar West","Khar","BKC","Lower Parel","Worli","Sion","Goregaon East","Goregaon West","Goregaon","Lokhandwala","Malad East","Malad West","Malad","Powai","Chembur","Dadar","Prabhadevi","Pali Hill","Kalina"]
-_NEARBY_MARKETS = {"Bandra East": ["BKC","Kalina","Santacruz East","Khar West","Bandra West","Santacruz West"],"Bandra West": ["Khar West","Pali Hill","Santacruz West","Bandra East","Juhu","BKC"],"Bandra": ["Bandra West","Bandra East","Khar West","BKC","Santacruz West"],"BKC": ["Bandra East","Kalina","Santacruz East","Khar West","Bandra West"],"Khar West": ["Bandra West","Santacruz West","Pali Hill","Juhu","Bandra East"],"Khar": ["Khar West","Bandra West","Santacruz West","Pali Hill","Juhu"],"Santacruz East": ["Kalina","BKC","Bandra East","Santacruz West","Andheri East"],"Santacruz West": ["Khar West","Juhu","Bandra West","Santacruz East","Andheri West"],"Santacruz": ["Santacruz West","Santacruz East","Khar West","Juhu","Kalina"],"Andheri West": ["Juhu","Lokhandwala","Goregaon West","Santacruz West","Andheri East"],"Andheri East": ["Kalina","Santacruz East","Powai","Andheri West","Goregaon East"],"Andheri": ["Andheri West","Andheri East","Juhu","Lokhandwala","Goregaon East"],"Juhu": ["Santacruz West","Khar West","Andheri West","Bandra West","Lokhandwala"],"Goregaon West": ["Lokhandwala","Andheri West","Malad West","Goregaon East"],"Goregaon East": ["Andheri East","Powai","Goregaon West","Malad East"],"Goregaon": ["Goregaon West","Goregaon East","Andheri West","Malad West"],"Malad West": ["Goregaon West","Malad East","Lokhandwala"],"Malad East": ["Goregaon East","Malad West","Powai"],"Malad": ["Malad West","Malad East","Goregaon West"]}
+_KNOWN_MARKETS = ["Dubai Marina","JBR","Downtown Dubai","Business Bay","DIFC","Palm Jumeirah","JVC","JVT","JLT","Dubai Hills Estate","Arabian Ranches","The Springs","The Meadows","The Greens","Al Barsha","Al Furjan","Deira","Bur Dubai","Karama","Mirdif","Silicon Oasis","Sports City","Motor City","Studio City","Emirates Hills","City Walk","Al Wasl","Satwa"]
+_NEARBY_MARKETS = {"Dubai Marina": ["JBR","JLT","The Greens","Al Barsha","Palm Jumeirah"],"JBR": ["Dubai Marina","The Greens","Palm Jumeirah"],"Downtown Dubai": ["Business Bay","DIFC","City Walk","Al Wasl"],"Business Bay": ["Downtown Dubai","DIFC","Al Wasl","Al Barsha"],"DIFC": ["Downtown Dubai","Business Bay","City Walk"],"Palm Jumeirah": ["Dubai Marina","JBR","Al Barsha"],"JVC": ["JVT","Al Barsha","Motor City","Al Furjan","Dubai Hills Estate"],"JVT": ["JVC","Motor City","JLT"],"JLT": ["Dubai Marina","The Greens","JVC","JVT"],"Dubai Hills Estate": ["Al Barsha","JVC","The Greens","Business Bay","Emirates Hills"],"Arabian Ranches": ["Dubai Hills Estate","Motor City","Sports City","JVC"],"The Springs": ["The Meadows","The Greens","Dubai Hills Estate","Emirates Hills"],"The Meadows": ["The Springs","The Greens","Emirates Hills","Dubai Hills Estate"],"The Greens": ["The Springs","The Meadows","JLT","Dubai Marina","Dubai Hills Estate"],"Al Barsha": ["Al Furjan","JVC","Dubai Hills Estate","The Greens","Motor City"],"Al Furjan": ["JVC","Al Barsha","Dubai Marina","Sports City"],"Deira": ["Bur Dubai","Karama","Mirdif"],"Bur Dubai": ["Karama","Satwa","Deira"],"Karama": ["Bur Dubai","Satwa","Deira"],"Mirdif": ["Deira","Silicon Oasis"],"Silicon Oasis": ["Mirdif","Sports City"],"Sports City": ["Motor City","Studio City","Arabian Ranches","Al Furjan"],"Motor City": ["Sports City","Studio City","Arabian Ranches","JVT","Al Barsha"],"Studio City": ["Motor City","Sports City"],"Emirates Hills": ["Dubai Hills Estate","The Meadows","The Springs"],"City Walk": ["Downtown Dubai","Al Wasl","DIFC"],"Al Wasl": ["Downtown Dubai","City Walk","Satwa","Business Bay"],"Satwa": ["Al Wasl","Bur Dubai","Karama","City Walk"]}
 _LISTING_SEARCH_BLOCKERS = re.compile(r"\b(broker|brokers|sender|senders|group|groups|duplicate|duplicates|trend|trends|market action|audit|remember|memory)\b", re.IGNORECASE)
 _LISTING_SEARCH_SIGNAL = re.compile(r"\b(\d+(?:\.\d+)?\s*bhk|studio|rent|rental|rentals|lease|sale|sales|sell|buy|purchase|available|availability|flat|apartment|property|listing|listings)\b", re.IGNORECASE)
 _INTENT_SEARCH_VERBS = re.compile(r"\b(show|find|search|list|latest|top|give|fetch|look\s+up|do\s+we\s+have|any|available|availability)\b", re.IGNORECASE)
@@ -2160,10 +2170,13 @@ def _user_message_texts(messages: list[dict]) -> list[str]:
     return [str(m.get("content") or "").strip() for m in messages if m.get("role") == "user" and str(m.get("content") or "").strip()]
 
 def _looks_like_property_terms(text: str) -> bool:
-    lowered = text.lower()
+    from routers.infra import normalize_multilingual
+    lowered = normalize_multilingual(text).lower()
+    arabic_property = re.search("ستوديو|شقة|فيلا|إيجار|ايجار|للبيع|غرف", lowered)
     return bool(re.search(r"\b\d+(?:\.\d+)?\s*bhk\b|\bstudio\b", lowered)
+                or arabic_property
                 or any(re.search(rf"\b{re.escape(m.lower())}\b", lowered) for m in _KNOWN_MARKETS)
-                or re.search(r"\b(?:₹|rs\.?\s*)?\d+(?:\.\d+)?\s*(?:cr|crore|crores|l|lac|lakh|lakhs|k)\b", lowered))
+                or re.search(r"\b(?:aed|dhs\s*)?\d+(?:\.\d+)?\s*(?:m|mn|millions?|k|thousands?)\b", lowered))
 
 def _classify_workspace_intent(messages: list[dict]) -> dict:
     user_messages = _user_message_texts(messages)
@@ -2232,16 +2245,11 @@ def _extract_simple_listing_query(messages: list[dict]) -> dict | None:
             locality = " ".join(part.capitalize() for part in loc_match.group(1).split())
             if locality:
                 args["micro_market"] = locality
-    price_match = re.search(r"\b(?:under|below|upto|up to|max)\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|crores|l|lac|lakh|lakhs|k)?\b", lowered)
+    price_match = re.search(r"\b(?:under|below|upto|up to|max)\s*(?:aed|dhs\s*)?(\d+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)?\b", lowered)
     if price_match:
-        amount = float(price_match.group(1)); unit = (price_match.group(2) or "").lower()
-        if unit in {"cr","crore","crores"}:
-            amount *= 1_00_00_000
-        elif unit in {"l","lac","lakh","lakhs"}:
-            amount *= 1_00_000
-        elif unit == "k":
-            amount *= 1_000
-        args["price_max"] = amount
+        amount = float(price_match.group(1)); unit = (price_match.group(2) or "").lower().rstrip("s")
+        multiplier = {"m": 1_000_000, "mn": 1_000_000, "million": 1_000_000, "k": 1_000, "thousand": 1_000}.get(unit, 1)
+        args["price_max"] = amount * multiplier
     if not any(key in args for key in ("bhk", "intent", "micro_market", "building", "price_max")):
         return None
     return args
@@ -2399,40 +2407,35 @@ def _extract_save_requirement_query(messages: list[dict]) -> dict | None:
         furnishing_parts.append("Semi Furnished")
     if furnishing_parts:
         args["furnishing"] = "/".join(furnishing_parts)
-    budget_match = re.search(r"\bbudget\s*(?:is|of|around|approx(?:imately)?|:)?\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(?:-|to|–|—)\s*(\d+(?:\.\d+)?)\s*(cr|crore|crores|l|lac|lacs|lakh|lakhs|k)?\b", lowered)
+    budget_match = re.search(r"\bbudget\s*(?:is|of|around|approx(?:imately)?|:)?\s*(?:aed|dhs\s*)?(\d+(?:\.\d+)?)\s*(?:-|to|–|—)\s*(\d+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)?\b", lowered)
     if not budget_match:
-        budget_match = re.search(r"\b(?:under|below|upto|up to|max|budget)\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|crores|l|lac|lacs|lakh|lakhs|k)?\b", lowered)
+        budget_match = re.search(r"\b(?:under|below|upto|up to|max|budget)\s*(?:aed|dhs\s*)?(\d+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)?\b", lowered)
     if not budget_match:
-        # Natural chat often gives a rental budget as “2.75 lakh per month”
+        # Natural chat often gives an annual rent budget as “120K per year”
         # without the word budget. Preserve that explicit amount.
         budget_match = re.search(
-            r"(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|crores|l|lac|lacs|lakh|lakhs|k)\b\s*(?:per\s+month|monthly)",
+            r"(?:aed|dhs\s*)?(\d+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)\b\s*(?:per\s+(?:year|yr)|yearly|annual)",
             lowered,
         )
     if not budget_match:
-        # Requirements commonly omit the word “budget”: “3 BHK at 2.5
-        # lacs”. Preserve that amount as the maximum budget instead of
-        # silently falling back to “price on request”.
+        # Requirements commonly omit the word “budget”: “2BR at 120K”.
+        # Preserve that amount as the maximum budget instead of silently
+        # falling back to “price on request”.
         budget_match = re.search(
-            r"(?:at|for|around|under|below|upto|up to)\s+(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|crores|l|lac|lacs|lakh|lakhs|k)\b",
+            r"(?:at|for|around|under|below|upto|up to)\s+(?:aed|dhs\s*)?(\d+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)\b",
             lowered,
         )
-    def amount_to_rupees(value: str, unit: str | None) -> float:
-        amount = float(value); unit = (unit or "").lower()
-        if unit in {"cr","crore","crores"}:
-            return amount * 1_00_00_000
-        if unit in {"l","lac","lacs","lakh","lakhs"}:
-            return amount * 1_00_000
-        if unit == "k":
-            return amount * 1_000
-        return amount
+    def amount_to_aed(value: str, unit: str | None) -> float:
+        amount = float(value); unit = (unit or "").lower().rstrip("s")
+        multipliers = {"m": 1_000_000, "mn": 1_000_000, "million": 1_000_000, "k": 1_000, "thousand": 1_000}
+        return amount * multipliers.get(unit, 1)
     if budget_match:
         if len(budget_match.groups()) == 3:
             unit = budget_match.group(3)
-            args["price_min"] = amount_to_rupees(budget_match.group(1), unit)
-            args["price_max"] = amount_to_rupees(budget_match.group(2), unit)
+            args["price_min"] = amount_to_aed(budget_match.group(1), unit)
+            args["price_max"] = amount_to_aed(budget_match.group(2), unit)
         else:
-            args["price_max"] = amount_to_rupees(budget_match.group(1), budget_match.group(2))
+            args["price_max"] = amount_to_aed(budget_match.group(1), budget_match.group(2))
     lock_in = re.search(r"\b(\d+(?:\.\d+)?)\s*months?\s+lock\s*in\b|\block\s*in\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*months?\b", lowered)
     if lock_in:
         months = lock_in.group(1) or lock_in.group(2)
@@ -2448,11 +2451,11 @@ def _format_requirement_budget(args: dict) -> str:
             amount = float(value)
         except (TypeError, ValueError):
             return ""
-        if amount >= 1_00_00_000:
-            return f"₹{amount / 1_00_00_000:g} Cr"
-        if amount >= 1_00_000:
-            return f"₹{amount / 1_00_000:g} L"
-        return f"₹{amount:,.0f}"
+        if amount >= 1_000_000:
+            return f"AED {amount / 1_000_000:g}M"
+        if amount >= 1_000:
+            return f"AED {round(amount / 1_000):g}K"
+        return f"AED {amount:,.0f}"
     if price_min and price_max:
         return f"{fmt(price_min)}-{fmt(price_max)}"
     if price_max:
@@ -2621,29 +2624,20 @@ def _format_listing_price(item: dict) -> str:
         value = float(price)
     except (TypeError, ValueError):
         return str(price)
-    unit = str(item.get("price_unit") or "").lower()
+    unit = str(item.get("price_unit") or "").strip().lower()
     is_rent = item.get("intent") == "RENT"
-    suffix = "/month" if is_rent else ""
+    suffix = "/yr" if is_rent else ""
     if is_rent and unit in {"per_sqft", "psf", "sqft"}:
-        return f"₹{value:,.0f}/sqft"
-    if is_rent and unit in {"","none","null","abs"}:
-        if 0 < value < 100:
-            return f"₹{value:g} L/month"
-        if 100 <= value < 1000:
-            return f"₹{value:g} K/month"
-        if 1000 <= value < 10000:
-            return f"₹{value / 1000:g} L/month"
-    if unit in {"lac","lakh","l"}:
-        return f"₹{value:g} L{suffix}"
-    if unit in {"cr","crore"}:
-        return f"₹{value:g} Cr"
+        return f"AED {value:,.0f}/sqft"
+    if unit in {"m","mn","million","millions"}:
+        return f"AED {value:g}M{suffix}"
     if unit == "k":
-        return f"₹{value:g} K{suffix}"
-    if value >= 1_00_00_000:
-        return f"₹{value / 1_00_00_000:.2f} Cr"
-    if value >= 1_00_000:
-        return f"₹{value / 1_00_000:.1f} L{suffix}"
-    return f"₹{value:,.0f}{suffix}" if value > 0 else ""
+        return f"AED {value:g}K{suffix}"
+    if value >= 1_000_000:
+        return f"AED {value / 1_000_000:.2f}M{suffix}"
+    if value >= 1_000:
+        return f"AED {round(value / 1_000):g}K{suffix}"
+    return f"AED {value:,.0f}{suffix}" if value > 0 else ""
 
 def _is_plausible_listing_result(item: dict, args: dict) -> bool:
     requested_intent = str(args.get("intent") or "").upper()
@@ -2662,9 +2656,7 @@ def _is_plausible_listing_result(item: dict, args: dict) -> bool:
             price = float(item.get("price")) if item.get("price") not in (None, "") else 0
         except (TypeError, ValueError):
             price = 0
-        if unit in {"cr","crore","crores"}:
-            return False
-        if unit in {"abs","absolute","rupees","rs","inr",""} and price >= 1_00_00_000:
+        if price >= 10_000_000:
             return False
     return True
 
@@ -2769,7 +2761,7 @@ def _raw_group_message_search(query_text: str, limit: int = 10, offset: int = 0)
         score = 0
         reasons: list[str] = []
 
-        if re.search(r"(?:₹|rs\.?|inr)?\s*\d[\d,\.]*(?:\s*(?:cr|crore|lac|lakh|k|month|mo|yr|year))?", lowered):
+        if re.search(r"(?:aed|dhs)?\s*\d[\d,\.]*(?:\s*(?:m|mn|million|k|month|mo|yr|year))?", lowered):
             score += 3
             reasons.append("Price mentioned")
         if re.search(r"\b\d+(?:\.\d+)?\s*(?:bhk|bedroom|bedrooms)\b", lowered):
@@ -2781,10 +2773,10 @@ def _raw_group_message_search(query_text: str, limit: int = 10, offset: int = 0)
         if re.search(r"\b(?:furnished|semi[- ]?furnished|unfurnished|fully furnished|part furnished)\b", lowered):
             score += 2
             reasons.append("Furnishing mentioned")
-        if re.search(r"\b(?:bandra|santacruz|juhu|andheri|bkc|powai|mumbai|thane|malad|goregaon|chembur|khar|vile parle|borivali|lower parel|worli)\b", lowered):
+        if re.search(r"\b(?:marina|jbr|jvc|jlt|business bay|downtown|difc|palm jumeirah|barsha|furjan|springs|meadows|greens|ranches|hills|deira|karama|mirdif|dubai)\b", lowered):
             score += 2
             reasons.append("Location mentioned")
-        if re.search(r"\b(?:call|contact|whatsapp|mobile|phone)\b", lowered) or re.search(r"\b(?:\+?91[-\s]?)?[6-9]\d{9}\b", lowered):
+        if re.search(r"\b(?:call|contact|whatsapp|mobile|phone)\b", lowered) or re.search(r"\b(?:\+?971[\s-]?)?(?:50|52|54|55|56|58)[\s-]?\d{3}[\s-]?\d{4}\b", lowered):
             score += 1
             reasons.append("Contact included")
         if len(set(re.findall(r"[a-z0-9]+", lowered))) >= 18:

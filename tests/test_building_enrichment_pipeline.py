@@ -22,7 +22,7 @@ class FakeProvider:
         return EnrichmentResult(
             provider=self.name,
             confidence=self.confidence,
-            fields={"address": "MS Gateway, Santacruz West"},
+            fields={"address": "Marina Gate, Dubai Marina"},
             source_url="https://example.test/place",
             source_record_id="place-1",
         )
@@ -46,7 +46,7 @@ class FakeStorage:
         return True
 
     def get_building(self, building_db_id=None, **kwargs):
-        return {"id": building_db_id, "canonical_name": "MS Gateway", "micro_market": "Santacruz West"}
+        return {"id": building_db_id, "canonical_name": "Marina Gate", "micro_market": "Dubai Marina"}
 
     def update_building_from_enrichment(self, *args):
         self.updated.append(args)
@@ -93,7 +93,7 @@ def test_unassigned_job_is_claimed_with_configured_provider_without_sqlite_calls
     assert storage.claimed == [(7, "google_places")]
     assert storage.enriched == [(42, "google_places", 0.95)]
     assert storage.sources
-    assert storage.backfilled == [(42, {"address": "MS Gateway, Santacruz West"}, 0.95)]
+    assert storage.backfilled == [(42, {"address": "Marina Gate, Dubai Marina"}, 0.95)]
     assert storage.history[0][0][2] == "enriched"
     assert storage.completed == [(7, True)]
 
@@ -122,22 +122,22 @@ def test_igr_provider_is_not_auto_registered():
 def test_geocoder_rejects_generic_building_name_match():
     assert _geocode_name_confidence(
         "By Apartment",
-        {"formatted_address": "Apartment Road, Worli, Mumbai"},
+        {"formatted_address": "Apartment Road, Downtown Dubai"},
     ) == 0.0
 
 
 def test_geocoder_accepts_distinctive_building_name_match():
     assert _geocode_name_confidence(
-        "Juhu Abhishek",
-        {"formatted_address": "Juhu Abhishek, Four Bungalows, Mumbai"},
+        "Burj Vista",
+        {"formatted_address": "Burj Vista, Downtown Dubai"},
     ) == 0.95
 
 
 def test_places_locality_prefers_sublocality_over_city():
     assert _locality_from_components([
-        {"longText": "Mumbai", "types": ["locality"]},
-        {"longText": "Byculla East", "types": ["sublocality_level_1"]},
-    ]) == "Byculla East"
+        {"longText": "Dubai", "types": ["locality"]},
+        {"longText": "Business Bay", "types": ["sublocality_level_1"]},
+    ]) == "Business Bay"
 
 
 def test_places_search_is_neutral_and_returns_provider_locality(monkeypatch):
@@ -155,7 +155,7 @@ def test_places_search_is_neutral_and_returns_provider_locality(monkeypatch):
             return False
 
         def read(self):
-            return b'''{"places":[{"id":"place-1","displayName":{"text":"Piramal Aranya"},"formattedAddress":"Byculla East, Mumbai, Maharashtra 400010","addressComponents":[{"longText":"Byculla East","types":["sublocality_level_1"]},{"longText":"Mumbai","types":["locality"]}],"location":{"latitude":18.976,"longitude":72.834}}]}'''
+            return b'''{"places":[{"id":"place-1","displayName":{"text":"Burj Vista"},"formattedAddress":"Business Bay, Dubai","addressComponents":[{"longText":"Business Bay","types":["sublocality_level_1"]},{"longText":"Dubai","types":["locality"]}],"location":{"latitude":25.189,"longitude":55.276}}]}'''
 
     def fake_urlopen(request, timeout=0):
         captured["body"] = json.loads(request.data.decode("utf-8"))
@@ -164,13 +164,13 @@ def test_places_search_is_neutral_and_returns_provider_locality(monkeypatch):
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
 
-    result = provider.enrich("Piramal Aranya", micro_market="Sion")
+    result = provider.enrich("Burj Vista", micro_market="Deira")
 
     assert captured["url"].endswith("places:searchText")
-    assert captured["body"]["textQuery"] == "Piramal Aranya, Mumbai, Maharashtra, India"
-    assert "Sion" not in captured["body"]["textQuery"]
+    assert captured["body"]["textQuery"] == "Burj Vista, Mumbai, Maharashtra, India"
+    assert "Deira" not in captured["body"]["textQuery"]
     assert result.confidence == 0.95
-    assert result.fields["micro_market"] == "Byculla East"
+    assert result.fields["micro_market"] == "Business Bay"
     assert result.fields["geocode_source"] == "google_places_text_search"
 
 
@@ -184,7 +184,7 @@ def test_places_same_name_across_markets_requires_evidence(monkeypatch):
         def __enter__(self): return self
         def __exit__(self, *_args): return False
         def read(self):
-            return b'''{"places":[{"id":"andheri","displayName":{"text":"Sunshine Heights"},"formattedAddress":"Andheri West, Mumbai","addressComponents":[{"longText":"Andheri West","types":["sublocality_level_1"]}],"location":{"latitude":19.1,"longitude":72.8}},{"id":"thane","displayName":{"text":"Sunshine Heights"},"formattedAddress":"Thane West, Maharashtra","addressComponents":[{"longText":"Thane West","types":["sublocality_level_1"]}],"location":{"latitude":19.2,"longitude":72.9}}]}'''
+            return b'''{"places":[{"id":"jvc","displayName":{"text":"Sunshine Heights"},"formattedAddress":"JVC, Dubai","addressComponents":[{"longText":"JVC","types":["sublocality_level_1"]}],"location":{"latitude":25.07,"longitude":55.28}},{"id":"deira","displayName":{"text":"Sunshine Heights"},"formattedAddress":"Deira, Dubai","addressComponents":[{"longText":"Deira","types":["sublocality_level_1"]}],"location":{"latitude":25.27,"longitude":55.33}}]}'''
 
     monkeypatch.setattr("urllib.request.urlopen", lambda *_args, **_kwargs: Response())
 
@@ -194,9 +194,9 @@ def test_places_same_name_across_markets_requires_evidence(monkeypatch):
 
     ranked = provider.enrich(
         "Sunshine Heights",
-        resolution_evidence={"source_localities": {"Andheri West": 4}},
+        resolution_evidence={"source_localities": {"JVC": 4}},
     )
-    assert ranked.fields["micro_market"] == "Andheri West"
+    assert ranked.fields["micro_market"] == "JVC"
 
 
 def test_cached_geocoder_failure_preserves_error_and_cannot_look_successful(monkeypatch):
@@ -246,8 +246,8 @@ def test_web_discovery_accepts_only_explicit_search_corrections():
         "Deepak Silverline",
         [{
             "source_url": "https://www.google.com/search?q=deepak",
-            "title": "These are results for Deepak Silverene Bandra West",
-            "excerpt": "Search instead for Deepak Silverline bandra west",
+            "title": "These are results for Deepak Silverene JVC",
+            "excerpt": "Search instead for Deepak Silverline JVC",
         }],
     )
 
@@ -274,12 +274,12 @@ def test_crawl4ai_provider_returns_candidate_for_worker_verification(monkeypatch
         lambda *_args, **_kwargs: [DiscoveryCandidate(
             building_name="Deepak Silverline",
             source_url="https://www.google.com/search?q=deepak",
-            title="These are results for Deepak Silverene Bandra West",
-            excerpt="These are results for Deepak Silverene Bandra West",
+            title="These are results for Deepak Silverene JVC",
+            excerpt="These are results for Deepak Silverene JVC",
         )],
     )
 
-    result = provider.enrich("Deepak Silverline", micro_market="Bandra West")
+    result = provider.enrich("Deepak Silverline", micro_market="JVC")
 
     assert result.raw_data["resolved_name"] == "Deepak Silverene"
     assert result.source_url.startswith("https://www.google.com")
@@ -297,15 +297,15 @@ def test_crawl4ai_provider_returns_structured_claims_without_promoting_them(monk
             building_name="Monalisa",
             source_url="https://example.test/monalisa",
             title="Monalisa Apartments",
-            excerpt="Address: 12 Example Road, Bandra West, Mumbai\nDeveloper: Example Homes\nMahaRERA No: P51800012345",
+            excerpt="Address: 12 Example Road, JVC, Dubai\nDeveloper: Example Homes\nDLD Permit No: 7123456789",
             structured_fields={
-                "address": {"value": "12 Example Road, Bandra West, Mumbai", "confidence": 0.82, "evidence": "Address: 12 Example Road"},
+                "address": {"value": "12 Example Road, JVC, Dubai", "confidence": 0.82, "evidence": "Address: 12 Example Road"},
                 "developer": {"value": "Example Homes", "confidence": 0.82, "evidence": "Developer: Example Homes"},
             },
         )],
     )
 
-    result = provider.enrich("Monalisa", micro_market="Bandra West")
+    result = provider.enrich("Monalisa", micro_market="JVC")
 
     assert result.fields == {}
     assert result.raw_data["structured_fields"]["developer"]["value"] == "Example Homes"
@@ -330,10 +330,10 @@ def test_crawl4ai_uses_source_locality_when_building_has_no_locality(monkeypatch
     provider.enrich(
         "West Avenue",
         micro_market="No locality",
-        resolution_evidence={"source_localities": {"Bandra West": 4}},
+        resolution_evidence={"source_localities": {"Dubai Marina": 4}},
     )
 
-    assert captured["locality"] == "Bandra West"
+    assert captured["locality"] == "Dubai Marina"
 
 
 def test_crawl4ai_normalizes_known_locality_typo(monkeypatch):
@@ -354,6 +354,6 @@ def test_crawl4ai_normalizes_known_locality_typo(monkeypatch):
     provider.enrich(
         "Some Building",
         micro_market="No locality",
-        resolution_evidence={"source_localities": {"Ndheri West": 3}},
+        resolution_evidence={"source_localities": {"Buisness Bay": 3}},
     )
-    assert captured["locality"] == "Andheri West"
+    assert captured["locality"] == "Business Bay"

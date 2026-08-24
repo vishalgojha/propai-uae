@@ -91,10 +91,10 @@ _PLACEHOLDER_RE = re.compile(
 # goes to the LLM; only messages with zero signal are skipped.
 _PROPERTY_SIGNAL_RE = re.compile(
     r"(?:"
-    r"\d\s*(?:bhk|rk\b)|\bbhk\b|\brk\b|"
+    r"\d\s*(?:bhk|br\b|rk\b)|\bbhk\b|\bbr\b|\brk\b|"
     r"sq\.?\s?ft|sqft|sq\.?\s?mtr|carpet|built\s*up|saleable|"
     r"\brent\b|\bsale\b|\blease\b|resale|\bbuy\b|\bsell\b|"
-    r"lakh|lacs?\b|\bcr\b|crore|₹|\brs\.?\b|inr\b|"
+    r"aed\b|dhs\b|dirhams?\b|cheques?\b|chqs?\b|ejari|"
     r"\bprice\b|budget|deposit|brokerage|"
     # "wanted"/"need" only count in their property sense — bare "just wanted
     # to say hi" is chatter, "wanted: 2 BHK" is a requirement.
@@ -104,12 +104,12 @@ _PROPERTY_SIGNAL_RE = re.compile(
     r"\bneed\s+(?:a|an|\d|one|two|three|flat|shop|office|apartment|property|"
     r"space|bhk|urgent)\b|"
     r"\bflat\b|apartment|\bshop\b|office|villa|bungalow|\bplot\b|"
-    r"penthouse|studio|duplex|godown|warehouse|showroom|"
+    r"penthouse|studio|duplex|godown|warehouse|showroom|townhouse|"
     # PG / co-living inventory: priced per bed, so it often carries no BHK,
-    # no sqft and no ₹ symbol — "Hall triple sharing 10k" is a real listing.
+    # no sqft and no currency marker — "Hall triple sharing 10k" is a real listing.
     r"\bpg\b|paying\s+guest|co\s*-?\s*living|hostel|"
     r"(?:single|double|triple|twin|quad)\s+sharing|sharing\s+basis|"
-    r"\b\d+\s*k\b|"
+    r"\b\d+\s*[km]\b|"
     r"furnished|unfurnished|vacant|possession|"
     r"floor\b|tower|wing\b|society|building|project"
     r")",

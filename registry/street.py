@@ -6,10 +6,10 @@ Every building sits on one or more streets. Every street belongs
 to a micro market.
 
 This enables:
-  - "Show me buildings on Carter Road"
-  - "Property near Hill Road" (WhatsApp/IGR)
-  - "3 BHK near Mehboob Studio" (landmark → street → buildings)
-  - IGR address resolution (survey number → street → micro market)
+  - "Show me buildings on Marina Walk"
+  - "Property near Al Wasl Road" (WhatsApp/DLD)
+  - "2 BR near Burj Khalifa" (landmark → street → buildings)
+  - DLD address resolution (plot number → street → micro market)
 """
 import csv
 import json
@@ -23,175 +23,208 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STREETS_PATH = os.path.join(BASE_DIR, "data", "streets.csv")
 BUILDING_STREETS_PATH = os.path.join(BASE_DIR, "data", "building_streets.csv")
 
-STREET_SUFFIXES = {"road", "street", "marg", "lane", "avenue", "drive", "highway", "way", "path"}
+STREET_SUFFIXES = {"road", "street", "walk", "lane", "avenue", "drive", "highway", "way", "path", "promenade", "boulevard"}
 
-# Known Mumbai streets that may not appear in our existing data
-# Each: (name, aliases, micro_market, pincodes, buildings_along_this_street)
-KNOWN_MUMBAI_STREETS = [
-    # South Mumbai
-    ("Altamount Road", ["Altamount Rd", "Altamont Road", "Dr Gopalrao Deshmukh Marg"], "Malabar Hill", ["400026"]),
-    ("Nepean Sea Road", ["Nepean Sea Rd", "Nepean Road", "Lady Hardinge Road"], "Malabar Hill", ["400036"]),
-    ("Peddar Road", ["Peddar Rd", "Pedar Road"], "Prabhadevi", ["400026"]),
-    ("Marine Drive", ["Marine Dr", "Netaji Subhash Chandra Bose Road", "Queens Necklace"], "Churchgate", ["400020"]),
-    ("Carmichael Road", ["Carmichael Rd", "Carmichael"], "Malabar Hill", ["400026"]),
-    ("Warden Road", ["Warden Rd", "Dr Bhadkamkar Marg"], "Breach Candy", ["400026"]),
-    ("Hughes Road", ["Hughes Rd", "Bhulabhai Desai Marg"], "Gamdevi", ["400036"]),
-    ("Grant Road", ["Grant Rd", "Maulana Shaukat Ali Marg"], "Mumbai Central", ["400036"]),
-    ("Breach Candy", ["Breach Candy Marg", "Bhulabhai Desai Road"], "Breach Candy", ["400026"]),
-    ("LBS Marg", ["Lbs Road", "Lal Bahadur Shastri Marg", "L B S Marg"], "Kurla", ["400070"]),
-    ("Cuffe Parade", ["Cuffe Parade Marg"], "Colaba", ["400005"]),
-    
-    # Western Suburbs
-    ("Linking Road", ["Linking Rd", "Link Road"], "Bandra West", ["400050", "400052", "400064"]),
-    ("Hill Road", ["Hill Rd", "Hillroad", "Dr Ambedkar Road"], "Bandra West", ["400050"]),
-    ("Carter Road", ["Carter Rd", "Carterroad"], "Bandra West", ["400050"]),
-    ("Turner Road", ["Turner Rd", "Gurunanak Marg"], "Bandra West", ["400050"]),
-    ("SV Road", ["S V Road", "Swami Vivekanand Road", "Sv Rd"], "Khar West", ["400052", "400058", "400057"]),
-    ("Juhu Tara Road", ["Juhu Tara Rd", "Juhu Tara"], "Juhu", ["400058"]),
-    ("Yari Road", ["Yari Rd", "Yariroad"], "Versova", ["400061"]),
-    ("Versova Road", ["Versova Rd", "Versova Link Road", "Vesava Road"], "Versova", ["400061"]),
-    ("Andheri Kurla Road", ["Andheri Kurla Rd", "Ak Road", "A K Road"], "Andheri East", ["400069", "400059"]),
-    ("Marol Maroshi Road", ["Marol Maroshi Rd", "Marol Road"], "Andheri East", ["400059"]),
-    ("Western Express Highway", ["Weh", "Mumbai Western Express Highway", "Western Exp Highway", "Western Express Hwy"], "Andheri West", ["400058", "400060", "400047", "400063"]),
-    ("New Link Road", ["New Link Rd", "Nlr"], "Kandivali West", ["400064", "400067"]),
-    ("Mira Road", ["Mira Road East", "Mira Bhayander Road"], "Mira Road", ["400601"]),
-    
-    # Eastern Suburbs
-    ("Eastern Express Highway", ["Eastern Exp Highway", "Eastern Express Hwy", "Eeh"], "Chembur", ["400022", "400024"]),
-    ("Sion Road", ["Sion Rd", "Sion"], "Sion", ["400022"]),
-    ("LBS Marg", ["Lbs Road", "Lal Bahadur Shastri Marg", "L B S Marg"], "Kurla", ["400070"]),
-    ("MG Road", ["M G Road", "Mahatma Gandhi Road"], "Ghatkopar West", ["400077", "400086"]),
-    
-    # Navi Mumbai
-    ("Palm Beach Road", ["Palm Beach Marg", "Palm Beach"], "Navi Mumbai", ["400703"]),
-    ("Sion Panvel Highway", ["Sion Panvel Road", "Old Mumbai Pune Highway"], "Navi Mumbai", ["410206"]),
-    
-    # Thane
-    ("Eastern Express Highway", ["Mumbai Nashik Highway", "Agra Road"], "Thane West", ["400601"]),
-    ("Ghoda Bunder Road", ["Ghoda Bunder Rd", "Jail Road"], "Thane West", ["400610"]),
+# Known Dubai streets that may not appear in our existing data
+# Each: (name, aliases, micro_market, pincodes) — Dubai has no postal codes,
+# so pincodes are always empty.
+KNOWN_DUBAI_STREETS = [
+    # Arterial highways
+    ("Sheikh Zayed Road", ["SZR", "E11", "Sheikh Zayed Rd"], "Sheikh Zayed Road", []),
+    ("Al Khail Road", ["E44", "Al Khail"], "Al Quoz", []),
+    ("Mohammed Bin Zayed Road", ["E311", "MBZ Road", "MBZR"], "Al Barsha", []),
+    ("Hessa Street", ["Al Hess Street", "Al Hessa Street"], "Al Barsha", []),
+    # Marina / New Dubai
+    ("Marina Walk", ["Dubai Marina Walk", "Marina Promenade"], "Dubai Marina", []),
+    ("Al Sufouh Road", ["Al Sufouh St"], "Al Sufouh", []),
+    ("The Walk", ["JBR Walk", "The Beach Walk"], "JBR", []),
+    # Jumeirah belt
+    ("Jumeirah Beach Road", ["Jumeirah Rd", "Jumeirah Road"], "Jumeirah", []),
+    ("Al Wasl Road", ["Wasl Road", "Al Wasl Rd"], "Al Wasl", []),
+    ("Al Safa Street", ["Safa Street"], "Al Barsha", []),
+    # Deira / old Dubai
+    ("Baniyas Road", ["Baniyas Sq", "Deira Baniyas Rd"], "Deira", []),
+    ("Al Maktoum Road", ["Al Maktoum St"], "Deira", []),
+    ("Oud Metha Road", ["Oud Metha St"], "Oud Metha", []),
+    # Business Bay / Downtown
+    ("Marasi Drive", ["Marasi Street"], "Business Bay", []),
+    ("Al Asayel Street", ["Asayel St"], "Business Bay", []),
+    ("Mohammed Bin Rashid Boulevard", ["MR Boulevard", "Downtown Boulevard"], "Downtown Dubai", []),
 ]
 
 # Micro market hierarchy
-MUMBAI_ZONES = {
-    "South Mumbai": [
-        "Colaba", "Churchgate", "Nariman Point", "Fort",
-        "Malabar Hill", "Prabhadevi", "Lower Parel", "Worli", "Mahalaxmi", "Parel",
-        "Byculla", "Dadar West", "Mumbai Central", "Marine Drive", "Tardeo", "Breach Candy",
+DUBAI_ZONES = {
+    "New Dubai": [
+        "Dubai Marina", "JBR", "Bluewaters Island", "Palm Jumeirah", "JLT",
+        "Al Furjan", "Dubai Production City", "Discovery Gardens", "Jebel Ali",
+        "Jumeirah Islands", "Jumeirah Park",
     ],
-    "Western Suburbs": [
-        "Bandra West", "Bandra East", "Khar West", "Santacruz West", "Vile Parle West",
-        "Andheri West", "Andheri East", "Jogeshwari West", "Goregaon West", "Malad West",
-        "Kandivali West", "Borivali West", "Dahisar", "Juhu", "Versova", "Powai",
-        "Oshiwara", "Lokhandwala", "Mahim",
+    "Central Dubai": [
+        "Downtown Dubai", "Business Bay", "DIFC", "Za'abeel", "City Walk",
+        "Sheikh Zayed Road", "Al Jaddaf", "Dubai Creek Harbour",
     ],
-    "Eastern Suburbs": [
-        "Kurla", "Sion", "Chembur", "Ghatkopar West", "Ghatkopar East",
-        "Vikhroli", "Kanjur Marg", "Bhandup", "Mulund West", "Nahur",
+    "Emirates Living": [
+        "The Springs", "The Meadows", "The Lakes", "Emirates Hills",
+        "The Greens", "The Views", "Dubai Hills Estate",
     ],
-    "Navi Mumbai": [
-        "Navi Mumbai", "Airoli", "Ghansoli", "Koparkhairne", "Vashi", "Sanpada",
-        "Nerul", "Belapur", "Kharghar", "Panvel", "New Panvel", "Dronagiri", "Ulwe",
+    "Jumeirah Belt": [
+        "Jumeirah", "Umm Suqeim", "Al Sufouh", "Al Wasl", "Al Barsha", "Al Quoz",
     ],
-    "Thane": [
-        "Thane West", "Thane East", "Mira Road", "Bhayandar", "Dombivali", "Kalyan",
-        "Ambernath", "Badlapur",
+    "Villages & Dubailand": [
+        "Jumeirah Village Circle", "Jumeirah Village Triangle", "Motor City",
+        "Sports City", "Studio City", "Arjan", "Remraam", "Mudon", "Town Square",
+        "DAMAC Hills", "Dubailand", "Dubai Silicon Oasis", "Academic City",
+        "Nad Al Sheba", "Meydan", "Al Barari",
+    ],
+    "Old Dubai": [
+        "Deira", "Bur Dubai", "Al Karama", "Oud Metha", "Umm Hurair", "Al Qusais",
+        "Al Nahda", "Al Rashidiya", "Al Garhoud", "Mirdif", "Al Warqaa",
+        "International City", "Dubai Festival City", "Ras Al Khor", "Al Khawaneej",
+        "Al Mizhar",
     ],
 }
 
 # Area → street mapping (which streets pass through which areas)
 # This enriches the building-street mapping from area field
 AREA_STREETS = {
-    "bandra west": ["Hill Road", "Carter Road", "Turner Road", "Linking Road", "SV Road"],
-    "khar west": ["SV Road", "Linking Road"],
-    "santacruz west": ["SV Road", "Linking Road", "Milan Subway Road"],
-    "vile parle west": ["SV Road", "Irla Road"],
-    "andheri west": ["SV Road", "New Link Road", "Veera Desai Road"],
-    "andheri east": ["Andheri Kurla Road", "Marol Maroshi Road", "Western Express Highway"],
-    "juhu": ["Juhu Tara Road", "Gulmohar Road"],
-    "versova": ["Yari Road", "Versova Road", "Balasaheb Sawant Road"],
-    "powai": ["LBS Marg", "Powai Road", "Chandivali Road"],
-    "worli": ["Senapati Bapat Marg", "Dr Annie Besant Road", "LJ Road"],
-    "lower parel": ["Senapati Bapat Marg", "Pandurang Budhkar Marg"],
-    "prabhadevi": ["Senapati Bapat Marg", "Gokhale Road"],
-    "dadar west": ["Ranade Road", "Gokhale Road", "Senapati Bapat Marg"],
-    "thane west": ["Ghoda Bunder Road", "Eastern Express Highway", "Pokhran Road #1"],
-    "chembur": ["Eastern Express Highway", "Sion Panvel Highway"],
-    "ghatkopar west": ["MG Road", "LBS Marg", "Junction Road"],
-    "mulund west": ["LBS Marg"],
-    "kandivali west": ["New Link Road", "SV Road"],
-    "borivali west": ["SV Road", "New Link Road"],
-    "malad west": ["New Link Road", "SV Road", "Marve Road"],
-    "goregaon west": ["SV Road", "New Link Road", "Film City Road"],
-    "mira road": ["Mira Road", "Eastern Express Highway"],
-    "navi mumbai": ["Palm Beach Road", "Sion Panvel Highway"],
-    "vashi": ["Palm Beach Road", "Vashi Station Road"],
-    "kharghar": ["Kharghar Station Road"],
-    "airoli": ["Airoli Station Road"],
-    "ghansoli": ["Ghansoli Station Road"],
-    "koparkhairne": ["Koparkhairne Station Road"],
-    "sion": ["Sion Road", "Sion Bandra Link Road"],
-    "bandra east": ["Bandra Kurla Complex Road"],
-    "bkc": ["Bandra Kurla Complex Road"],
-    "byculla": ["N M Joshi Marg"],
-    "marine drive": ["Marine Drive", "Maharshi Karve Road"],
-    "malabar hill": ["Malabar Hill", "Ridge Road"],
-    "breach candy": ["Breach Candy", "Bhulabhai Desai Marg"],
-    "colaba": ["Colaba Causeway", "Shahid Bhagat Singh Marg"],
-    "fort": ["Shahid Bhagat Singh Marg", "Mahatma Gandhi Road"],
-    "grant road": ["Grant Road", "Maulana Shaukat Ali Marg"],
-    "opera house": ["Mama Paramanand Marg"],
-    "altamount road": ["Altamount Road"],
-    "nepean sea road": ["Nepean Sea Road"],
-    "peddar road": ["Peddar Road"],
-    "carmichael road": ["Carmichael Road"],
-    "hughes road": ["Hughes Road"],
-    "warden road": ["Warden Road"],
-    "yari road": ["Yari Road"],
-    "lbs marg": ["LBS Marg"],
-    "kanjur marg": ["Kanjur Marg"],
-    "marine lines": ["Marine Drive", "Maharshi Karve Road"],
-    "churchgate": ["Maharshi Karve Road"],
-    "gamdevi": ["Hughes Road", "J Boman Behram Marg"],
-    "tardeo": ["Tardeo Road"],
-    "mahim": ["Jasmine Mill Road", "LJ Road"],
-    "matunga": ["Bhandarkar Road"],
-    "kurla": ["S G Barve Marg", "LBS Marg"],
-    "ghatkopar east": ["LBS Marg"],
-    "jogeshwari west": ["SV Road"],
-    "jogeshwari east": ["Western Express Highway"],
-    "dahisar west": ["New Link Road", "Western Express Highway"],
-    "dahisar east": ["Eastern Express Highway"],
+    "dubai marina": ["Marina Walk"],
+    "marina walk": ["Marina Walk"],
+    "jbr": ["The Walk"],
+    "jumeirah beach residence": ["The Walk"],
+    "the walk": ["The Walk"],
+    "palm jumeirah": ["Crescent Road", "Frond"],
+    "al sufouh": ["Al Sufouh Road"],
+    "al sufouh 1": ["Al Sufouh Road"],
+    "al sufouh 2": ["Al Sufouh Road"],
+    "jumeirah": ["Jumeirah Beach Road"],
+    "jumeirah 1": ["Jumeirah Beach Road"],
+    "jumeirah 2": ["Jumeirah Beach Road", "Al Wasl Road"],
+    "jumeirah 3": ["Jumeirah Beach Road", "Al Wasl Road"],
+    "al wasl": ["Al Wasl Road"],
+    "umm suqeim": ["Jumeirah Beach Road", "Al Wasl Road"],
+    "al barsha": ["Hessa Street", "Al Safa Street", "Sheikh Zayed Road"],
+    "al barsha 1": ["Al Safa Street", "Sheikh Zayed Road"],
+    "al barsha 2": ["Hessa Street"],
+    "barsha south": ["Hessa Street", "Al Khail Road"],
+    "al quoz": ["Al Khail Road"],
+    "sheikh zayed road": ["Sheikh Zayed Road"],
+    "szr": ["Sheikh Zayed Road"],
+    "business bay": ["Marasi Drive", "Al Asayel Street", "Al Khail Road"],
+    "downtown dubai": ["Mohammed Bin Rashid Boulevard"],
+    "za'abeel": ["Sheikh Zayed Road", "Al Khail Road"],
+    "deira": ["Baniyas Road", "Al Maktoum Road"],
+    "port saeed": ["Al Maktoum Road", "Baniyas Road"],
+    "oud metha": ["Oud Metha Road"],
+    "bur dubai": ["Al Khail Road", "Al Fahidi Street"],
+    "al karama": ["Oud Metha Road"],
+    "al jaddaf": ["Al Khail Road"],
+    "dubai creek harbour": ["Al Khail Road"],
+    "ras al khor": ["Al Khail Road"],
+    "dubai festival city": ["Al Khail Road"],
+    "al garhoud": ["Al Khail Road"],
+    "al qusais": ["Al Khail Road", "Amman Street"],
+    "al nahda": ["Al Khail Road", "Amman Street"],
+    "al rashidiya": ["Al Khail Road"],
+    "mirdif": ["Al Khail Road"],
+    "al warqaa": ["Al Khail Road"],
+    "international city": ["Al Khail Road", "Manama Street"],
+    "warsan": ["Al Khail Road"],
+    "al khawaneej": ["Al Khawaneej Road"],
+    "al mizhar": ["Al Khawaneej Road"],
+    "meydan": ["Al Khail Road"],
+    "nad al sheba": ["Al Khail Road", "Sheikh Zayed Road"],
+    "dubai silicon oasis": ["Al Khail Road"],
+    "academic city": ["Al Khail Road"],
+    "dubailand": ["Sheikh Zayed Road", "Al Khail Road"],
+    "arjan": ["Hessa Street", "Mohammed Bin Zayed Road"],
+    "motor city": ["Hessa Street", "Mohammed Bin Zayed Road"],
+    "sports city": ["Hessa Street", "Mohammed Bin Zayed Road"],
+    "studio city": ["Hessa Street", "Al Khail Road"],
+    "town square": ["Al Khail Road"],
+    "damac hills": ["Mohammed Bin Zayed Road"],
+    "remraam": ["Mohammed Bin Zayed Road", "Al Khail Road"],
+    "mudon": ["Mohammed Bin Zayed Road"],
+    "jvc": ["Al Khail Road", "Hessa Street"],
+    "jvt": ["Al Khail Road", "Hessa Street"],
+    "jlt": ["Sheikh Zayed Road", "Al Khail Road"],
+    "dubai marina ": ["Marina Walk"],
+    "discovery gardens": ["Sheikh Zayed Road", "Ibn Battuta Street"],
+    "al furjan": ["Sheikh Zayed Road", "Mohammed Bin Zayed Road"],
+    "impz": ["Al Khail Road"],
+    "production city": ["Al Khail Road"],
+    "jebel ali": ["Sheikh Zayed Road", "Mohammed Bin Zayed Road"],
+    "emirates hills": ["Sheikh Zayed Road"],
+    "dubai hills estate": ["Al Khail Road", "Umm Suqeim Street"],
+    "the springs": ["Al Asayel Street"],
+    "the meadows": ["Sheikh Zayed Road"],
+    "the lakes": ["Sheikh Zayed Road"],
+    "the greens": ["Sheikh Zayed Road"],
+    "the views": ["Sheikh Zayed Road"],
 }
 
 # Known buildings with no street mapping → assign via micro market proximity
 # Map: micro_market -> likely streets
 MICRO_MARKET_STREETS = {
-    "Worli": ["LJ Road", "Senapati Bapat Marg", "Dr Annie Besant Road", "Khan Abdul Gaffar Khan Road"],
-    "Lower Parel": ["Senapati Bapat Marg", "Pandurang Budhkar Marg", "NM Joshi Marg"],
-    "Prabhadevi": ["Senapati Bapat Marg", "Gokhale Road", "Veer Savarkar Marg"],
-    "Dadar West": ["Ranade Road", "Gokhale Road", "Senapati Bapat Marg"],
-    "Bandra West": ["Hill Road", "Carter Road", "Turner Road", "Linking Road", "SV Road", "Perry Road", "Waterfield Road"],
-    "Khar West": ["SV Road", "Linking Road", "14th Road"],
-    "Santacruz West": ["SV Road", "Linking Road", "Milan Subway"],
-    "Vile Parle West": ["SV Road", "Irla Road", "Nehru Road"],
-    "Andheri West": ["SV Road", "Linking Road", "New Link Road", "Veera Desai Road"],
-    "Andheri East": ["Andheri Kurla Road", "Marol Maroshi Road", "Western Express Highway"],
-    "Juhu": ["Juhu Tara Road", "JVPD Scheme", "Gulmohar Road"],
-    "Versova": ["Yari Road", "Versova Road", "Beach Road"],
-    "Powai": ["Powai Road", "Chandivali Road", "LBS Marg"],
-    "Lower Parel": ["Senapati Bapat Marg", "Pandurang Budhkar Marg"],
-    "Thane West": ["Ghoda Bunder Road", "Eastern Express Highway", "Pokhran Road #1", "Pokhran Road #2"],
-    "Chembur": ["Eastern Express Highway", "Sion Panvel Highway", "RC Marg"],
-    "Ghatkopar West": ["MG Road", "LBS Marg", "Junction Road"],
-    "Mulund West": ["LBS Marg", "Gopal Krishna Gokhale Road"],
-    "Kandivali West": ["New Link Road", "SV Road"],
-    "Borivali West": ["SV Road", "New Link Road"],
-    "Malad West": ["New Link Road", "SV Road", "Marve Road"],
-    "Goregaon West": ["SV Road", "New Link Road", "Film City Road"],
-    "Mira Road": ["Mira Road", "Eastern Express Highway"],
-    "Kharghar": ["Sector 12 Road", "Kharghar Station Road", "CBD Belapur Road"],
-    "Vashi": ["Palm Beach Road", "Sector 17 Road", "Vashi Station Road"],
-    "Airoli": ["Airoli Station Road", "Mumbai Nashik Highway"],
+    "Dubai Marina": ["Marina Walk"],
+    "JBR": ["The Walk"],
+    "Bluewaters Island": ["Bluewaters Walk"],
+    "Palm Jumeirah": ["Crescent Road", "Frond", "Palm Jumeirah Road"],
+    "JLT": ["Sheikh Zayed Road", "Al Khail Road"],
+    "Al Furjan": ["Mohammed Bin Zayed Road"],
+    "Discovery Gardens": ["Ibn Battuta Street"],
+    "Jebel Ali": ["Sheikh Zayed Road"],
+    "Downtown Dubai": ["Mohammed Bin Rashid Boulevard"],
+    "Business Bay": ["Marasi Drive", "Al Asayel Street", "Al Khail Road"],
+    "DIFC": ["Financial Center Road"],
+    "Za'abeel": ["Sheikh Zayed Road", "Al Khail Road"],
+    "Sheikh Zayed Road": ["Sheikh Zayed Road"],
+    "The Springs": ["Al Asayel Street"],
+    "The Meadows": ["Sheikh Zayed Road"],
+    "The Lakes": ["Sheikh Zayed Road"],
+    "Emirates Hills": ["Sheikh Zayed Road"],
+    "The Greens": ["Sheikh Zayed Road"],
+    "The Views": ["Sheikh Zayed Road"],
+    "Dubai Hills Estate": ["Al Khail Road", "Umm Suqeim Street"],
+    "Jumeirah": ["Jumeirah Beach Road", "Al Wasl Road"],
+    "Umm Suqeim": ["Jumeirah Beach Road", "Al Wasl Road"],
+    "Al Sufouh": ["Al Sufouh Road"],
+    "Al Wasl": ["Al Wasl Road"],
+    "Jumeirah Village Circle": ["Al Khail Road", "Hessa Street"],
+    "Jumeirah Village Triangle": ["Al Khail Road", "Hessa Street"],
+    "Al Barsha": ["Hessa Street", "Al Safa Street", "Sheikh Zayed Road"],
+    "Al Quoz": ["Al Khail Road"],
+    "Motor City": ["Hessa Street", "Mohammed Bin Zayed Road"],
+    "Sports City": ["Hessa Street", "Mohammed Bin Zayed Road"],
+    "Studio City": ["Hessa Street", "Al Khail Road"],
+    "Arjan": ["Hessa Street", "Mohammed Bin Zayed Road"],
+    "Remraam": ["Mohammed Bin Zayed Road", "Al Khail Road"],
+    "Mudon": ["Mohammed Bin Zayed Road"],
+    "Town Square": ["Al Khail Road"],
+    "DAMAC Hills": ["Mohammed Bin Zayed Road"],
+    "Dubailand": ["Al Khail Road", "Sheikh Zayed Road"],
+    "Dubai Silicon Oasis": ["Al Khail Road"],
+    "Academic City": ["Al Khail Road"],
+    "Mirdif": ["Al Khail Road"],
+    "Al Warqaa": ["Al Khail Road"],
+    "International City": ["Al Khail Road", "Manama Street"],
+    "Nad Al Sheba": ["Al Khail Road", "Sheikh Zayed Road"],
+    "Meydan": ["Al Khail Road"],
+    "Al Barari": ["Sheikh Mohammed Bin Zayed Road"],
+    "Al Khawaneej": ["Al Khawaneej Road"],
+    "Al Mizhar": ["Al Khawaneej Road"],
+    "Deira": ["Baniyas Road", "Al Maktoum Road"],
+    "Bur Dubai": ["Al Fahidi Street", "Al Khail Road"],
+    "Al Karama": ["Oud Metha Road"],
+    "Oud Metha": ["Oud Metha Road"],
+    "Umm Hurair": ["Oud Metha Road"],
+    "Al Qusais": ["Al Khail Road", "Amman Street"],
+    "Al Nahda": ["Al Khail Road", "Amman Street"],
+    "Al Rashidiya": ["Al Khail Road"],
+    "Al Garhoud": ["Al Khail Road", "Airport Road"],
+    "Dubai Festival City": ["Al Khail Road"],
+    "Al Jaddaf": ["Al Khail Road"],
+    "Dubai Creek Harbour": ["Al Khail Road"],
+    "Ras Al Khor": ["Al Khail Road"],
 }
 
 
@@ -414,9 +447,9 @@ def write_streets(streets: list[Street]):
 
 
 def build_known_streets() -> list[Street]:
-    """Build Street objects from known Mumbai streets list."""
+    """Build Street objects from known Dubai streets list."""
     streets = []
-    for name, aliases, micro_market, pincodes in KNOWN_MUMBAI_STREETS:
+    for name, aliases, micro_market, pincodes in KNOWN_DUBAI_STREETS:
         s = Street(
             street_id="",
             name=name,
@@ -511,7 +544,7 @@ def build_registry():
     print(f"  From building areas: {len(streets_from_areas)} streets")
 
     streets_known = build_known_streets()
-    print(f"  From known Mumbai streets: {len(streets_known)} streets")
+    print(f"  From known Dubai streets: {len(streets_known)} streets")
 
     merged = merge_streets(
         merge_streets(streets_from_geocode, streets_from_areas),

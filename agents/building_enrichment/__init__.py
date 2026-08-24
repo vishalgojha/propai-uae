@@ -1,7 +1,7 @@
 """Building Enrichment Pipeline - Provider Interface and Workers."""
 
 from .providers import (
-    BaseProvider, IGRProvider, RERAProvider, GooglePlacesProvider,
+    BaseProvider, DLDProvider, RERAProvider, GooglePlacesProvider,
     OpenStreetMapProvider, Crawl4AIBuildingDiscoveryProvider,
 )
 from .worker import BuildingEnrichmentWorker
@@ -9,7 +9,7 @@ from .discovery import BuildingDiscovery
 
 __all__ = [
     "BaseProvider",
-    "IGRProvider",
+    "DLDProvider",
     "RERAProvider",
     "GooglePlacesProvider",
     "OpenStreetMapProvider",

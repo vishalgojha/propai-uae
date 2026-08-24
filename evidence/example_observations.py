@@ -24,7 +24,7 @@ EXAMPLES["housing_sale"] = {
     "observation_type": "SALE_LISTING",
     "source": "HOUSING",
     "observed_at": "2026-06-15",
-    "source_reference": "https://www.housing.com/property/lodha-belvedere-worli-mumbai",
+    "source_reference": "https://www.bayut.com/property/marina-gate-dubai-marina-dubai",
     "payload": {
         "bedrooms": 3,
         "bathrooms": 3,
@@ -48,7 +48,7 @@ EXAMPLES["housing_rent"] = {
     "observation_type": "RENT_LISTING",
     "source": "HOUSING",
     "observed_at": "2026-06-20",
-    "source_reference": "https://www.housing.com/property/runwal-greens-mulund-mumbai",
+    "source_reference": "https://www.bayut.com/property/burj-vista-downtown-dubai-dubai",
     "payload": {
         "bedrooms": 2,
         "bathrooms": 2,
@@ -125,7 +125,7 @@ EXAMPLES["maharera_registration"] = {
         "total_floors": 45,
         "total_units": 320,
         "project_area_sqmt": 28000,
-        "project_address": "Piramal Mahalaxmi, Mahalaxmi, Mumbai 400011",
+        "project_address": "Marina Gate, Dubai Marina, Dubai",
     },
 }
 
@@ -308,7 +308,7 @@ def demonstrate():
         # Show key payload fields
         payload = obs.get("payload", {})
         if "price" in payload:
-            print(f"  Price: ₹{payload['price']:,}")
+            print(f"  Price: AED {payload['price']:,}")
         if "bedrooms" in payload:
             print(f"  Unit: {payload['bedrooms']} BHK")
         if "area_sqft" in payload:

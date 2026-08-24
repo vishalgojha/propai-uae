@@ -40,14 +40,20 @@ class ParsedQuery(BaseModel):
 
 
 _LOCALITY_NAMES = [
-    "bandra west", "bandra east", "andheri west", "andheri east",
-    "goregaon west", "goregaon east", "khar west", "khar east",
-    "santacruz west", "santacruz east", "vile parle west", "vile parle east",
-    "malad west", "malad east", "borivali west", "borivali east",
-    "bandra", "andheri", "goregaon", "juhu", "powai", "khar", "chembur",
-    "thane", "navi", "mumbai", "delhi", "bangalore", "bengaluru", "hyderabad",
-    "pune", "chennai", "kolkata", "gurgaon", "gurugram", "noida", "borivali",
-    "kandivali", "parel", "worli", "dadar", "santacruz", "vashi", "malad",
+    "dubai marina", "jumeirah beach residence", "palm jumeirah",
+    "jumeirah lakes towers", "jumeirah village circle", "jumeirah village triangle",
+    "dubai hills estate", "arabian ranches", "discovery gardens",
+    "dubai production city", "dubai sports city", "dubai silicon oasis",
+    "business bay", "downtown dubai", "emirates hills", "damac hills",
+    "sheikh zayed road", "town square", "motor city", "international city",
+    "festival city", "silicon oasis", "bluewaters island",
+    "jbr", "jvc", "jvt", "jlt", "difc", "dso", "szr", "impz",
+    "marina", "barsha", "furjan", "springs", "meadows", "lakes",
+    "greens", "views", "ranches", "hills estate", "sports city",
+    "deira", "bur dubai", "karama", "mirdif", "qusais", "nahda",
+    "jaddaf", "meydan", "warqa", "khawaneej", "mizhar", "garhoud",
+    "dubailand", "jebel ali", "jafza", "remraam", "mudon", "arjan",
+    "jumeirah", "suqeim", "sufouh", "wasl", "zabeel", "barari",
 ]
 
 
@@ -72,8 +78,12 @@ def _extract_localities(query: str) -> list[str]:
         pattern = rf'\b{loc}\b'
         if re.search(pattern, lower):
             # A specific directional locality already accounts for its bare
-            # parent ("Bandra West" must not also become "Bandra").
-            if any(existing.startswith(f"{loc} ") or loc.startswith(f"{existing} ") for existing in localities):
+            # parent ("Dubai Marina" must not also become "Marina").
+            if any(
+                existing.startswith(f"{loc} ") or loc.startswith(f"{existing} ")
+                or f" {loc}" in f" {existing}"
+                for existing in localities
+            ):
                 continue
             if loc not in localities:
                 localities.append(loc)
@@ -171,39 +181,61 @@ def _load_locality_corridor(endpoints: tuple[str, str]) -> dict[str, list[str]]:
 
 
 def _parse_price(text: str) -> tuple[Optional[int], Optional[int]]:
+    """Parse AED budgets: Dubai quotes K/M shorthand against annual rents.
+
+    Handles ranges ("80k to 1.2M"), single shorthand values ("85K",
+    "1.5M") with under/above prefixes, and absolute dirham amounts written
+    after an explicit currency word ("AED 95000").  Cheque-count tokens
+    ("4 cheques") never parse as prices.
+    """
     text = text.lower()
-    min_val = None
-    max_val = None
-    range_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:to|and|-)\s*(\d+(?:\.\d+)?)\s*(?:l(?:akh)?|cr)', text)
-    if range_match:
-        first = int(float(range_match.group(1)) * (100000 if 'l' in range_match.group(0) else 10000000))
-        second = int(float(range_match.group(2)) * (100000 if 'l' in range_match.group(0) else 10000000))
-        min_val = min(first, second)
-        max_val = max(first, second)
-        return min_val, max_val
-    lakh_match = re.search(r'(\d+(?:\.\d+)?)\s*l(?:akh)?', text)
-    if lakh_match:
-        val = int(float(lakh_match.group(1)) * 100000)
-        prefix = text[max(0, lakh_match.start() - 18):lakh_match.start()]
-        if re.search(r'\b(?:under|below|upto|up\s+to|max(?:imum)?)\s*$', prefix):
-            max_val = val
-        elif re.search(r'\b(?:above|over|min(?:imum)?|from)\s*$', prefix):
-            min_val = val
-        else:
-            min_val = max_val = val
-    crore_match = re.search(r'(\d+(?:\.\d+)?)\s*cr', text)
-    if crore_match:
-        val = int(float(crore_match.group(1)) * 10000000)
-        prefix = text[max(0, crore_match.start() - 18):crore_match.start()]
-        if re.search(r'\b(?:under|below|upto|up\s+to|max(?:imum)?)\s*$', prefix):
-            min_val = None
-            max_val = val
-        elif re.search(r'\b(?:above|over|min(?:imum)?|from)\s*$', prefix):
-            min_val = val
-            max_val = None
-        elif min_val is None:
-            min_val = max_val = val
-    return min_val, max_val
+    multipliers = {"k": 1_000, "thousand": 1_000,
+                   "m": 1_000_000, "mn": 1_000_000, "million": 1_000_000}
+    unit_re = r'(k|thousand|m|mn|million)?'
+
+    def _value(num: str, unit: str | None) -> int | None:
+        try:
+            val = float(num.replace(",", ""))
+        except ValueError:
+            return None
+        if unit:
+            return int(val * multipliers[unit])
+        return int(val)
+
+    range_match = re.search(
+        rf'(?:aed|dhs)?\s*([\d,.]+)\s*{unit_re}\s*(?:to|and|-)\s*'
+        rf'(?:aed|dhs)?\s*([\d,.]+)\s*{unit_re}', text)
+    if range_match and (range_match.group(2) or range_match.group(4)
+                        or 'aed' in range_match.group(0) or 'dhs' in range_match.group(0)):
+        first_unit = range_match.group(2) or range_match.group(4)
+        second_unit = range_match.group(4) or range_match.group(2)
+        first = _value(range_match.group(1), first_unit)
+        second = _value(range_match.group(3), second_unit)
+        if first is not None and second is not None:
+            return min(first, second), max(first, second)
+
+    km_match = re.search(rf'([\d,.]+)\s*{unit_re}(?![a-z])', text)
+    if km_match and km_match.group(2):
+        val = _value(km_match.group(1), km_match.group(2))
+        if val is not None:
+            prefix = text[max(0, km_match.start() - 18):km_match.start()]
+            if re.search(r'\b(?:under|below|upto|up\s+to|max(?:imum)?)\s*$', prefix):
+                return None, val
+            if re.search(r'\b(?:above|over|min(?:imum)?|from)\s*$', prefix):
+                return val, None
+            return val, val
+
+    abs_match = re.search(r'(?:aed|dhs)\s*([\d,]{4,})', text)
+    if abs_match:
+        val = _value(abs_match.group(1), None)
+        if val is not None:
+            prefix = text[max(0, abs_match.start() - 18):abs_match.start()]
+            if re.search(r'\b(?:under|below|upto|up\s+to|max(?:imum)?)\s*$', prefix):
+                return None, val
+            if re.search(r'\b(?:above|over|min(?:imum)?|from)\s*$', prefix):
+                return val, None
+            return val, val
+    return None, None
 
 
 def _parse_area(text: str) -> tuple[Optional[int], Optional[int]]:
@@ -420,8 +452,10 @@ async def search_market_items(
         "to", "from", "under", "below", "above", "over", "up", "upto", "max",
         "minimum", "maximum", "bhk", "bed", "beds", "bedroom", "bedrooms",
         "rent", "rental", "lease", "sale", "sell", "buy", "purchase", "property",
-        "properties", "listing", "listings", "requirement", "requirements", "lakh",
-        "lakhs", "crore", "crores", "cr", "residential", "commercial", "office",
+        "properties", "listing", "listings", "requirement", "requirements",
+        "aed", "dhs", "dirham", "dirhams", "cheque", "cheques", "chq",
+        "yearly", "annual", "annum", "monthly", "residential", "commercial", "office",
+        "br", "bhk", "studio",
         "flat", "apartment", "furnished", "unfurnished", "semi", "fully",
         "sqft", "sq", "ft", "area", "carpet", "built", "chargeable",
         "looking", "look", "want", "wanted", "need", "needs", "seeking", "on", "available", "space",

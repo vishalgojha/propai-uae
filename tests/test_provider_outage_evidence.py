@@ -92,14 +92,23 @@ def test_classify_degraded_when_error_rate_above_20pct_in_30_min():
     assert app._classify_provider_status(events, now) == "degraded"
 
 
-def test_classify_up_when_error_rate_below_20pct():
+def test_classify_up_when_all_recent_probes_are_ok():
     now = _now()
     events = sorted(
-        [{"status": "timeout", "ts": _iso(now - 60)}]
-        + [{"status": "ok", "ts": _iso(now - 30)} for _ in range(9)],
+        [{"status": "ok", "ts": _iso(now - t)} for t in range(60, 601, 60)],
         key=lambda e: -_parse_ts(e["ts"]),
     )
     assert app._classify_provider_status(events, now) == "up"
+
+
+def test_fresh_failure_after_recovery_stays_degraded_not_up():
+    now = _now()
+    events = sorted(
+        [{"status": "timeout", "ts": _iso(now - 600)}]
+        + [{"status": "ok", "ts": _iso(now - t)} for t in (30, 60, 90, 120)],
+        key=lambda e: -_parse_ts(e["ts"]),
+    )
+    assert app._classify_provider_status(events, now) == "degraded"
 
 
 # ── _summarise_provider ───────────────────────────────────────────────

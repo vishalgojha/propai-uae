@@ -35,7 +35,7 @@ PATTERN_ORDER = [
 
 _BHK_HEADER_PATTERN = (
     r"^\s*(?:[*_~]+\s*)?(?:[🏡▪️▫️•]\s*)?"
-    r"(?:\d+(?:\.\d+)?\s*(?:bhk|rk)\b|\brk\b)"
+    r"(?:\d+(?:\.\d+)?\s*(?:bhk|br|rk)\b|\b(?:br|rk)\b)"
 )
 _BHK_HEADER_RE = re.compile(r"(?im)" + _BHK_HEADER_PATTERN)
 _DASH_LINE_RE = re.compile(r"^\s*(?:[-–—_=]{3,}|[─━]{3,}|•{3,}|·{3,})\s*$")
@@ -46,7 +46,7 @@ _EMOJI_BULLET_GLYPHS = ("🏡", "📍", "▪️", "▫️", "•", "‣", "➤")
 _BHK_LINE_RE = re.compile(r"(?im)" + _BHK_HEADER_PATTERN)
 _LISTING_HEADER_RE = re.compile(
     r"(?i)^\s*(?:[*_~]+\s*)?(?:[🏡▪️▫️•‣➤]\s*)?"
-    r"(?:\d+(?:\.\d+)?\s*(?:bhk|rk)\b|\brk\b)"
+    r"(?:\d+(?:\.\d+)?\s*(?:bhk|br|rk)\b|\b(?:br|rk)\b)"
     r"(?:.*\b(?:for\s+rent|for\s+sale|lease|lease\s+out)\b.*)?\s*$"
 )
 
@@ -64,7 +64,7 @@ _AREA_RE = re.compile(
     r"[^0-9]{0,12}([\d,]+(?:\.\d+)?)\s*(sqft|sq\.?\s*ft|sft)?"
 )
 _PRICE_RE = re.compile(
-    r"(?i)(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d+)?)\s*(cr|crore|crores|lac|lacs|lakh|lakhs|l|k)\b"
+    r"(?i)(?:aed|dhs|dirhams?)?\s*([\d,]+(?:\.\d+)?)\s*(m|mn|million|k)\b"
 )
 # Some brokers send multiple inventory lines without line breaks, punctuation,
 # or bullets: ``One BHK SF flat ... 75 K 2 BHK SF flat ... 40 K``. This is
@@ -73,7 +73,7 @@ _PRICE_RE = re.compile(
 # ``2 BHK or 3 BHK`` must remain one message for review.
 _RUN_ON_LISTING_START_RE = re.compile(
     r"(?i)\b(?:"
-    r"(?:large\s+)?(?:one|two|three|four|five|\d+(?:\.\d+)?)\s*(?:bhk|rk)"
+    r"(?:large\s+)?(?:one|two|three|four|five|\d+(?:\.\d+)?)\s*(?:bhk|br|rk)"
     r"|studio"
     r")\b(?=\s+(?:sf|ff|uf|flat|apartment|furnished|unfurnished|semi[-\s]?furnished|"
     r"[a-z]))"
@@ -84,18 +84,21 @@ _DECORATIVE_BOLD_RE = re.compile(
     r"for\s+sale|for\s+rent|kindly\s+call|urgent|hot\s+deal)\b"
 )
 _GLOBAL_HEADER_RE = re.compile(
-    r"(?is)^\s*(\*[^*\n]{2,120}\*)\s*(?=\*[^*\n]{2,40}\*|[^\n]*\b\d+(?:\.\d+)?\s*(?:bhk|rk)\b)"
+    r"(?is)^\s*(\*[^*\n]{2,120}\*)\s*(?=\*[^*\n]{2,40}\*|[^\n]*\b\d+(?:\.\d+)?\s*(?:bhk|br|rk)\b)"
 )
 _INTENT_RENT_RE = re.compile(r"(?i)\b(?:rent|rental|lease|lease\s+out|for\s+rent)\b")
 _INTENT_SALE_RE = re.compile(r"(?i)\b(?:sale|sell|selling|sel|for\s+sale)\b")
 _INTENT_REQ_RE = re.compile(r"(?i)\b(?:requirement|required|wanted|looking\s+for|need)\b")
 _LOCATION_HINT_RE = re.compile(
     r"(?i)\b("
-    r"andheri|bandra|khar|juhu|santacruz|bkc|lokhandwala|powai|worli|"
-    r"goregaon|malad|jogeshwari|vile\s+parle|versova|borivali|thane|mulund|"
-    r"mahim|pali\s+hill|pali\s+naka|waterfield|turner\s+road|linking\s+road|"
-    r"carter\s+road|altamount\s+road|napean\s+sea\s+road|kemps\s+corner|"
-    r"sv\s+road|road|street|lane|nagar|phase|sector|metro|station|"
+    r"marina|jbr|jvc|jvt|jlt|downtown|business\s+bay|difc|palm\s+jumeirah|"
+    r"barsha|furjan|springs|meadows|lakes|greens|views|ranches|hills\s+estate|"
+    r"sports\s+city|motor\s+city|town\s+square|damac\s+hills|dubailand|"
+    r"deira|karama|qusais|nahda|festival\s+city|silicon\s+oasis|dso|jaddaf|"
+    r"metha|warqa|khawaneej|mirdif|international\s+city|discovery\s+gardens|"
+    r"jebel\s+ali|impz|production\s+city|remraam|mudon|arjan|meydan|"
+    r"nad\s+al\s+sheba|barari|bluewaters|suqeim|sufouh|wasl|zabeel|szr|"
+    r"sheikh\s+zayed\s+road|walk|promenade|boulevard|metro|station|"
     r"exchange|complex|garden|heights|tower|building|apartment|residency|estate"
     r")\b"
 )
@@ -164,7 +167,7 @@ def _anchor_candidate_text(line: str) -> str | None:
         return cleaned
     if _BOILERPLATE_RE.search(cleaned):
         return None
-    if re.search(r"(?i)\b(?:floor|parking|carpet|sqft|rent|sale|lakh|lac|crore|cr|k|furnished|unfurnished)\b", cleaned):
+    if re.search(r"(?i)\b(?:floor|parking|carpet|sqft|rent|sale|furnished|unfurnished|aed|dhs)\b|[\d,.]+\s*[km]\b", cleaned):
         return None
     if len(cleaned.split()) <= 1:
         return None
@@ -234,7 +237,7 @@ def _normalize_bhk(text: str) -> str | None:
 
 
 def _extract_bhk(text: str) -> str | None:
-    match = re.search(r"(?i)\b(\d+(?:\.\d+)?)\s*(bhk|rk)\b", text or "")
+    match = re.search(r"(?i)\b(\d+(?:\.\d+)?)\s*(bhk|br|rk)\b", text or "")
     if match:
         return _normalize_bhk(f"{match.group(1)} {match.group(2)}")
     if re.search(r"(?i)\brk\b", text or ""):
@@ -251,12 +254,8 @@ def _extract_price(text: str) -> tuple[float | None, str | None]:
     except ValueError:
         return None, None
     unit = match.group(2).lower()
-    if unit in {"crore", "crores"}:
-        unit = "cr"
-    elif unit in {"lac", "lacs", "lakh", "lakhs"}:
-        unit = "lac"
-    elif unit == "l":
-        unit = "lac"
+    if unit in {"m", "mn", "million"}:
+        unit = "M"
     elif unit == "k":
         unit = "K"
     return amount, unit
@@ -346,7 +345,7 @@ def _choose_text_line(lines: list[str]) -> str | None:
             continue
         if _BOILERPLATE_RE.search(cleaned):
             continue
-        if re.search(r"(?i)\b(?:floor|parking|carpet|sqft|rent|sale|lakh|lac|crore|cr|k|furnished|unfurnished)\b", cleaned):
+        if re.search(r"(?i)\b(?:floor|parking|carpet|sqft|rent|sale|furnished|unfurnished|aed|dhs)\b|[\d,.]+\s*[km]\b", cleaned):
             continue
         if len(cleaned.split()) <= 1:
             continue
@@ -538,7 +537,7 @@ def _split_inline_bold(text: str) -> list[str] | None:
     spans = []
     for match in _INLINE_BOLD_RE.finditer(value):
         label = match.group(1).strip()
-        has_config = bool(re.search(r"(?i)\b\d+(?:\.\d+)?\s*(?:bhk|rk)\b", label))
+        has_config = bool(re.search(r"(?i)\b\d+(?:\.\d+)?\s*(?:bhk|br|rk)\b", label))
         if _DECORATIVE_BOLD_RE.match(label) and not has_config:
             continue
         if len(label.split()) <= 6:
@@ -555,7 +554,7 @@ def _split_inline_bold(text: str) -> list[str] | None:
             previous_label = previous.group(1)
             between = value[previous.end():match.start()]
             previous_has_config = bool(re.search(
-                r"(?i)\b\d+(?:\.\d+)?\s*(?:bhk|rk)\b", previous_label
+                r"(?i)\b\d+(?:\.\d+)?\s*(?:bhk|br|rk)\b", previous_label
             ))
             if previous_has_config and not _PRICE_RE.search(between):
                 continue
@@ -679,7 +678,7 @@ def parse_chunk(chunk: str) -> dict:
         first_bold = _INLINE_BOLD_RE.search(lines[0] if lines else "")
         if first_bold:
             label = first_bold.group(1).strip()
-            has_config = bool(re.search(r"(?i)\b\d+(?:\.\d+)?\s*(?:bhk|rk)\b", label))
+            has_config = bool(re.search(r"(?i)\b\d+(?:\.\d+)?\s*(?:bhk|br|rk)\b", label))
             if not _DECORATIVE_BOLD_RE.match(label) and not has_config:
                 building_name = label
     labelled_inline_location = re.search(

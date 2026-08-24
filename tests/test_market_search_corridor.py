@@ -26,9 +26,9 @@ REFERENCE_ROWS = [
 
 
 def test_between_query_extracts_multi_word_endpoints():
-    query = "3 BHK rent between Bandra West and Andheri West under 3 Lakh"
-    assert _corridor_endpoints(query) == ("bandra west", "andheri west")
-    assert _extract_localities(query) == ["bandra west", "andheri west"]
+    query = "2 BHK rent between Dubai Marina and JVC under 120K"
+    assert _corridor_endpoints(query) == ("dubai marina", "jvc")
+    assert _extract_localities(query) == ["dubai marina", "jvc"]
 
 
 def test_corridor_resolves_bare_parent_locality_to_known_directional_rows():

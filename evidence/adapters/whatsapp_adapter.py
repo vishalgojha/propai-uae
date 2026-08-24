@@ -22,20 +22,20 @@ SOURCE_URL = ""  # No public URL — messages are scraped from groups
 # "Need 2BHK in XYZ Building, budget 80L"
 REQ_PATTERN = re.compile(
     r"(?:need|want|looking\s*for|requirement|client\s*looking|buyer\s*looking)"
-    r".*?(\d+\s*BHK|1\s*RK|studio).*?(?:in|at)\s+([A-Za-z\s]+?)(?:,|\.|$|budget)",
+    r".*?(\d+\s*(?:BHK|BR)|1\s*RK|studio).*?(?:in|at)\s+([A-Za-z\s]+?)(?:,|\.|$|budget|aed|dhs)",
     re.IGNORECASE,
 )
 
 # "Offering 3BHK in ABC Tower, 1.2Cr"
 OFFER_PATTERN = re.compile(
     r"(?:offering|available|deal|listing|property)\s*(?:for\s*sale|for\s*rent)?"
-    r".*?(\d+\s*BHK|1\s*RK|studio).*?(?:in|at)\s+([A-Za-z\s]+?)(?:,|\.|$|for\s*₹)",
+    r".*?(\d+\s*(?:BHK|BR)|1\s*RK|studio).*?(?:in|at)\s+([A-Za-z\s]+?)(?:,|\.|$|budget|aed|dhs)",
     re.IGNORECASE,
 )
 
-# Price pattern: ₹50L, 80L, 1.2Cr, 1.5 crore
+# Price pattern: AED 85K, 95k, 2.5M, 1.5 million
 PRICE_PATTERN = re.compile(
-    r"[₹Rs.]*\s*(\d+\.?\d*)\s*(Cr|crore|L|lakh|K|k)",
+    r"(?:aed|dhs)?[\s.]*\s*(\d+\.?\d*)\s*(M|mn|million|K|k)",
     re.IGNORECASE,
 )
 
@@ -131,16 +131,14 @@ def extract(message: str, sender: str = "", timestamp: str = "") -> list[dict]:
 
 
 def _parse_price(text: str) -> Optional[float]:
-    """Parse Indian price format: 50L, 1.2Cr, 80 lakh, 1.5 crore."""
+    """Parse UAE price format: 85K, 95k, 2.5M, 1.5 million (annual AED)."""
     match = PRICE_PATTERN.search(text)
     if not match:
         return None
     amount = float(match.group(1))
     unit = match.group(2).lower()
-    if unit in ("cr", "crore"):
-        return amount * 10000000
-    if unit in ("l", "lakh"):
-        return amount * 100000
+    if unit in ("m", "mn", "million"):
+        return amount * 1000000
     if unit in ("k",):
         return amount * 1000
     return amount

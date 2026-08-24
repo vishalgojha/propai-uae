@@ -82,26 +82,28 @@ def _check_secret(x_business_api_webhook_secret: str | None):
 
 def _phone_identity_key(phone: str) -> str | None:
     digits = re.sub(r"\D+", "", phone or "")
-    if len(digits) >= 10:
-        return f"phone:{digits[-10:]}"
+    if len(digits) >= 9:
+        return f"phone:{digits[-9:]}"
     return None
 
 
 def _normalize_phone(phone: str) -> str:
-    """Normalize phone to 10-digit Indian format.
+    """Normalize phone to 9-digit UAE mobile format.
 
-    Strips all non-digits, handles +91 / 0 prefix, and validates the
-    Indian mobile prefix (6-9). Returns empty string for invalid numbers.
+    Strips all non-digits, handles +971 / 00971 / 0 prefix, and validates
+    the UAE mobile prefix (5). Returns empty string for invalid numbers.
     """
     raw = (phone or "").strip()
     if not raw or re.search(r"[xX*•]", raw):
         return ""
     digits = re.sub(r"\D", "", raw)
-    if len(digits) == 12 and digits.startswith("91"):
-        digits = digits[-10:]
-    elif len(digits) == 11 and digits.startswith("0"):
-        digits = digits[-10:]
-    if len(digits) == 10 and re.match(r"^[6-9]\d{9}$", digits):
+    if len(digits) == 12 and digits.startswith("971"):
+        digits = digits[3:]
+    elif len(digits) == 14 and digits.startswith("00971"):
+        digits = digits[5:]
+    elif len(digits) == 10 and digits.startswith("0"):
+        digits = digits[1:]
+    if len(digits) == 9 and re.match(r"^5\d{8}$", digits):
         return digits
     return ""
 
@@ -204,10 +206,10 @@ class CreateRequirementRequest(BaseModel):
     confirmed: bool = False
 
 
-def _to_price_cr(price: str | None) -> float | None:
-    """Convert a human-readable price string to crores.
+def _to_price_m_aed(price: str | None) -> float | None:
+    """Convert a human-readable price string to millions of AED.
 
-    "1.5 cr" -> 1.5, "85 lac" -> 0.85, "₹90L" -> 0.9, "2500000" -> 2.5.
+    "1.5m" -> 1.5, "850k" -> 0.85, "AED 2500000" -> 2.5.
     Returns None if unparseable or if the text looks like a non-price query.
     """
     if not price:
@@ -222,21 +224,19 @@ def _to_price_cr(price: str | None) -> float | None:
     except ValueError:
         return None
     # Guard: if the text contains words that clearly indicate this isn't a
-    # price (e.g. "3 BHK in Bandra"), bail out early.
-    if re.search(r"\b(bhk|bed|room|floor|flat|apt|sq\s?ft|sqft)\b", text):
+    # price (e.g. "2 BR in JVC"), bail out early.
+    if re.search(r"\b(bhk|br\b|bed|room|floor|flat|apt|sq\s?ft|sqft)\b", text):
         return None
     # Unit-aware normalization — check the original text for unit keywords.
-    # Use [^a-z] boundaries instead of \b for single-letter units like "L"
+    # Use [^a-z] boundaries instead of \b for single-letter units like "M"
     # because \b doesn't trigger between a digit and a letter (both are \w).
-    if re.search(r"(?:^|[^a-z])(?:crore|crores|cr)(?:[^a-z]|$)", text):
-        return val          # already in crore
-    if re.search(r"(?:^|[^a-z])(?:lac|lakh|lakhs|lacs|l)(?:[^a-z]|$)", text):
-        return val / 100    # lakh -> crore
+    if re.search(r"(?:^|[^a-z])(?:mn|million|m)(?:[^a-z]|$)", text):
+        return val          # already in millions
     if re.search(r"(?:^|[^a-z])(?:k|thousand)(?:[^a-z]|$)", text):
-        return val / 10000  # thousand -> crore
-    # No unit found — assume the value is already in crore (most common
-    # case from ElevenLabs structured extraction which normalizes to cr).
-    return val
+        return val / 1000   # thousand -> million
+    # No unit found — assume the value is already absolute AED (most common
+    # case from structured extraction which normalizes to dirhams).
+    return val / 1_000_000
 
 
 def _tenant_id_for(broker: dict) -> str:
@@ -349,7 +349,7 @@ async def save_listing_webhook(
         "parsed_ids": result.get("parsed_ids") or [],
         "listing_ids": listing_ids,
         "listing_urls": [
-            f"{os.environ.get('PUBLIC_WWW_URL', 'https://www.propai.live').rstrip('/')}/listings/{listing_id}/{listing_id}"
+            f"{os.environ.get('PUBLIC_WWW_URL', 'https://ae.propai.live').rstrip('/')}/listings/{listing_id}/{listing_id}"
             for listing_id in listing_ids
         ],
         "broker_id": str(broker["id"]),

@@ -1,6 +1,6 @@
 """Location resolver.
 
-Resolves vague location descriptions to known Mumbai micro_markets.
+Resolves vague location descriptions to known Dubai micro_markets.
 Last resort enrichment — runs after deterministic checks fail.
 
 Pre-checks before LLM:
@@ -25,11 +25,11 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from lab.storage.base import Storage
 
-LOCATION_SYSTEM_PROMPT = """You are a Mumbai real estate location resolver.
+LOCATION_SYSTEM_PROMPT = """You are a Dubai real estate location resolver.
 
-Given a raw WhatsApp message and its extracted location text, determine the most specific micro_market in Mumbai.
+Given a raw WhatsApp message and its extracted location text, determine the most specific micro_market in Dubai.
 
-Known micro_markets include: Bandra West, Bandra East, Khar West, Khar East, Santacruz West, Santacruz East, Vile Parle West, Vile Parle East, Andheri West, Andheri East, Juhu, Juhu Tara Road, Versova, Lokhandwala, Oshiwara, Marol, Sakinaka, Powai, Chandivali, BKC (Bandra Kurla Complex), Lower Parel, Parel, Mahalaxmi, Worli, Prabhadevi, Dadar West, Dadar East, Matunga, Mahim, Shivaji Park, Malad West, Malad East, Goregaon West, Goregaon East, Kandivali West, Kandivali East, Borivali West, Borivali East, Dahisar, Mira Road, Thane West, Thane East, Mulund, Bhandup, Vikhroli, Kanjur Marg, Ghatkopar, Chembur, Wadala, Sewri, Colaba, Cuffe Parade, Nariman Point, Fort, Churchgate, Marine Lines, Charni Road, Grant Road, Mumbai Central, Mahalakshmi.
+Known micro_markets include: Dubai Marina, JBR (Jumeirah Beach Residence), The Walk, Bluewaters Island, Palm Jumeirah, JLT (Jumeirah Lakes Towers), JVC (Jumeirah Village Circle), JVT (Jumeirah Village Triangle), Al Furjan, Discovery Gardens, Dubai Production City (IMPZ), Jebel Ali, Downtown Dubai, Business Bay, DIFC, Za'abeel, City Walk, Sheikh Zayed Road (SZR), The Springs, The Meadows, The Lakes, Emirates Hills, The Greens, The Views, Arabian Ranches, Dubai Hills Estate, Jumeirah, Umm Suqeim, Al Sufouh, Madina Jumeirah Living (MJL), Al Wasl, Al Barsha, Barsha Heights (Tecom), Al Quoz, Dubai Sports City, Motor City, Dubai Studio City, Arjan, Remraam, Mudon, Town Square (Nshama), DAMAC Hills, Dubailand, The Villa, Majan, Liwan, Living Legends, Reem, Mira, Mirdif, Al Warqaa, International City, Warsan, Nad Al Sheba, Meydan, Al Barari, Al Khawaneej, Al Mizhar, Deira, Bur Dubai, Al Karama, Oud Metha, Al Qusais, Al Nahda, Al Rashidiya, Al Garhoud, Al Jaddaf (Culture Village), Dubai Festival City, Dubai Silicon Oasis (DSO), Ras Al Khor, Dubai Creek Harbour.
 
 Rules:
 - Return the single best micro_market match

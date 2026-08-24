@@ -38,33 +38,33 @@ from extraction_dedup import (  # noqa: E402
 
 
 def test_identical_text_hashes_identically():
-    a = "3 BHK for sale in Belscot Tower, Andheri West. Price 5.25 Cr."
+    a = "3 BHK for sale in Belscot Tower, JVC. Price 5.25 M."
     assert content_hash(a) == content_hash(a)
 
 
 def test_whitespace_and_forward_banner_do_not_change_hash():
     """The same listing forwarded between groups must hit the cache."""
-    original = "3 BHK for sale in Belscot Tower, Andheri West. Price 5.25 Cr."
-    forwarded = "Forwarded: 3 BHK  for sale  in Belscot Tower,\nAndheri West. Price 5.25 Cr."
+    original = "3 BHK for sale in Belscot Tower, JVC. Price 5.25 M."
+    forwarded = "Forwarded: 3 BHK  for sale  in Belscot Tower,\nJVC. Price 5.25 M."
     assert content_hash(original) == content_hash(forwarded)
 
 
 def test_zero_width_characters_do_not_change_hash():
-    plain = "2 BHK rent Bandra West 85000 carpet 950 sqft"
-    zwj = "2 BHK rent\u200b Bandra West 85000 carpet 950 sqft"
+    plain = "2 BHK rent Dubai Marina 85000 carpet 950 sqft"
+    zwj = "2 BHK rent\u200b Dubai Marina 85000 carpet 950 sqft"
     assert content_hash(plain) == content_hash(zwj)
 
 
 def test_different_price_produces_different_hash():
     """Near-identical text with a real difference must NOT share a cache entry."""
-    a = "3 BHK Belscot Tower Andheri West. Price 5.25 Cr. Contact 9876543210"
-    b = "3 BHK Belscot Tower Andheri West. Price 6.25 Cr. Contact 9876543210"
+    a = "3 BHK Belscot Tower JVC. Price 5.25 M. Contact 501234567"
+    b = "3 BHK Belscot Tower JVC. Price 6.25 M. Contact 501234567"
     assert content_hash(a) != content_hash(b)
 
 
 def test_different_building_produces_different_hash():
-    a = "2 BHK rent in Aristo Sapphire Santacruz West 2.5 lacs semi furnished"
-    b = "2 BHK rent in Belscot Tower Santacruz West 2.5 lacs semi furnished"
+    a = "2 BHK rent in Aristo Sapphire Al Barsha 250 k semi furnished"
+    b = "2 BHK rent in Belscot Tower Al Barsha 250 k semi furnished"
     assert content_hash(a) != content_hash(b)
 
 
@@ -77,14 +77,14 @@ def test_normalize_collapses_whitespace_but_preserves_case_and_digits():
 
 
 REAL_LISTINGS = [
-    "FOR SALE - Belscot Tower, Old Lokhandwala. 3 BHK, 1500 carpet, 5.25 Cr. Suraj 8097665340",
-    "2 BHK for rent in Lokhandwala Complex Andheri West, carpet 950 sqft, rent 85000",
-    "Office for rent Bandra West, Rizvi Chambers, 270 sq.ft, rent 48000 negotiable",
-    "*Sole Mandate* Available 3bhk On Lease in Aristo Sapphire, Santacruz west, 2.5 Lacs",
+    "FOR SALE - Belscot Tower, JVC. 3 BHK, 1500 carpet, 5.25 M. Suraj 552345678",
+    "2 BHK for rent in JVC Cluster, carpet 950 sqft, rent 85000",
+    "Office for rent Dubai Marina, Rizvi Chambers, 270 sq.ft, rent 48000 negotiable",
+    "*Sole Mandate* Available 3bhk On Lease in Aristo Sapphire, Al Barsha, 250 k",
     "Requirement: client looking for 4 BHK in Juhu, budget 12 cr, ready possession only",
-    "Shop available on lease at Hill Road, 400 sqft, deposit 5 lakh, rent 1.2 lakh",
+    "Shop available on lease at Hill Road, 400 sqft, deposit 50 k, rent 12 k",
     "Plot for sale 2000 sq mtr in Thane West, clear title, price on request",
-    "ok 2 BHK available in Bandra West 85000 rent carpet 900 sqft call me",
+    "ok 2 BHK available in Dubai Marina 85000 rent carpet 900 sqft call me",
 ]
 
 
@@ -95,7 +95,7 @@ def test_real_listings_are_never_skipped(text):
 
 def test_chatter_prefix_does_not_skip_a_real_listing():
     """'ok' starts the message but it still carries a listing — must not skip."""
-    assert should_skip("ok 2 BHK available in Bandra West 85000 rent 900 sqft") is None
+    assert should_skip("ok 2 BHK available in Dubai Marina 85000 rent 900 sqft") is None
 
 
 # ── skip filter: must skip non-listings ──────────────────────────────
@@ -218,7 +218,7 @@ PAYLOAD = {
 
 
 def test_cache_lookup_returns_payload_on_hit():
-    text = "3 BHK Belscot Tower Andheri West 5.25 Cr carpet 1500 sqft"
+    text = "3 BHK Belscot Tower JVC 5.25 M carpet 1500 sqft"
     storage = _FakeStorage(
         [{"id": 7, "tenant_id": TENANT_A, "content_hash": _cache_hash(text),
           "extraction": PAYLOAD, "provider_used": "grid", "item_count": 1}]
@@ -228,11 +228,11 @@ def test_cache_lookup_returns_payload_on_hit():
 
 def test_cache_lookup_miss_returns_none():
     storage = _FakeStorage([])
-    assert cache_lookup(storage, TENANT_A, "2 BHK rent Bandra West 85000") is None
+    assert cache_lookup(storage, TENANT_A, "2 BHK rent Dubai Marina 85000") is None
 
 
 def test_cache_lookup_does_not_reuse_pre_versioned_output():
-    text = "2 BHK rent Bandra West 85000 carpet 900 sqft"
+    text = "2 BHK rent Dubai Marina 85000 carpet 900 sqft"
     storage = _FakeStorage(
         [{"id": 9, "tenant_id": TENANT_A, "content_hash": content_hash(text),
           "extraction": PAYLOAD, "provider_used": "grid", "item_count": 1}]
@@ -243,7 +243,7 @@ def test_cache_lookup_does_not_reuse_pre_versioned_output():
 
 def test_cache_lookup_is_tenant_scoped():
     """Tenant B must not read an entry cached by tenant A."""
-    text = "3 BHK Belscot Tower Andheri West 5.25 Cr carpet 1500 sqft"
+    text = "3 BHK Belscot Tower JVC 5.25 M carpet 1500 sqft"
     storage = _FakeStorage(
         [{"id": 7, "tenant_id": TENANT_A, "content_hash": _cache_hash(text),
           "extraction": PAYLOAD, "provider_used": "grid", "item_count": 1}]
@@ -253,7 +253,7 @@ def test_cache_lookup_is_tenant_scoped():
 
 
 def test_cache_lookup_records_hit():
-    text = "3 BHK Belscot Tower Andheri West 5.25 Cr carpet 1500 sqft"
+    text = "3 BHK Belscot Tower JVC 5.25 M carpet 1500 sqft"
     storage = _FakeStorage(
         [{"id": 42, "tenant_id": TENANT_A, "content_hash": _cache_hash(text),
           "extraction": PAYLOAD}]
@@ -266,7 +266,7 @@ def test_cache_lookup_records_hit():
 
 def test_cache_lookup_without_tenant_returns_none():
     storage = _FakeStorage([])
-    assert cache_lookup(storage, "", "2 BHK rent Bandra West 85000 carpet") is None
+    assert cache_lookup(storage, "", "2 BHK rent Dubai Marina 85000 carpet") is None
 
 
 def test_cache_lookup_survives_backend_error():
@@ -275,7 +275,7 @@ def test_cache_lookup_survives_backend_error():
             raise RuntimeError("supabase down")
 
     storage = SimpleNamespace(client=_Boom())
-    assert cache_lookup(storage, TENANT_A, "2 BHK rent Bandra West 85000") is None
+    assert cache_lookup(storage, TENANT_A, "2 BHK rent Dubai Marina 85000") is None
 
 
 # ── cache: store ─────────────────────────────────────────────────────
@@ -283,7 +283,7 @@ def test_cache_lookup_survives_backend_error():
 
 def test_cache_store_writes_tenant_scoped_row():
     storage = _FakeStorage([])
-    text = "2 BHK rent Bandra West 85000 carpet 900 sqft"
+    text = "2 BHK rent Dubai Marina 85000 carpet 900 sqft"
     cache_store(storage, TENANT_A, text, PAYLOAD, provider_used="grid")
 
     assert len(storage.client.upserts) == 1
@@ -301,7 +301,7 @@ def test_cache_store_ignores_failed_extraction():
     cache_store(
         storage,
         TENANT_A,
-        "2 BHK rent Bandra West 85000 carpet",
+        "2 BHK rent Dubai Marina 85000 carpet",
         {"extraction_source": "ai_unavailable", "extractions": [], "needs_review": True},
     )
     assert storage.client.upserts == []
@@ -312,7 +312,7 @@ def test_cache_store_ignores_reparse_preview():
     cache_store(
         storage,
         TENANT_A,
-        "2 BHK rent Bandra West 85000 carpet",
+        "2 BHK rent Dubai Marina 85000 carpet",
         {"extraction_source": "reviewed_reparse_preview", "extractions": []},
     )
     assert storage.client.upserts == []
@@ -320,14 +320,14 @@ def test_cache_store_ignores_reparse_preview():
 
 def test_cache_store_without_tenant_is_noop():
     storage = _FakeStorage([])
-    cache_store(storage, "", "2 BHK rent Bandra West 85000 carpet", PAYLOAD)
+    cache_store(storage, "", "2 BHK rent Dubai Marina 85000 carpet", PAYLOAD)
     assert storage.client.upserts == []
 
 
 def test_cache_roundtrip_forwarded_copy_hits_original():
     """End-to-end: store the original, then a forwarded copy must hit."""
-    original = "3 BHK for sale in Belscot Tower, Andheri West. Price 5.25 Cr."
-    forwarded = "Forwarded: 3 BHK  for sale  in Belscot Tower,\nAndheri West. Price 5.25 Cr."
+    original = "3 BHK for sale in Belscot Tower, JVC. Price 5.25 M."
+    forwarded = "Forwarded: 3 BHK  for sale  in Belscot Tower,\nJVC. Price 5.25 M."
 
     storage = _FakeStorage([])
     cache_store(storage, TENANT_A, original, PAYLOAD, provider_used="grid")

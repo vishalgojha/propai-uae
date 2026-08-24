@@ -20,10 +20,10 @@ def test_typed_requirement_contact_uses_source_identity_and_requirement_copy(mon
         calls.append((item_id, source_schema, raw_message_id, tenant_id))
         return {
             "id": item_id,
-            "broker_phone": "+91 98765 43210",
+            "broker_phone": "+971 50 123 4567",
             "bhk": "1.0",
             "building_name": "2 Bathrooms",
-            "micro_market": "Bandra West",
+            "micro_market": "Dubai Marina",
             "message_type": "requirement",
             "visibility": "shared_market",
             "tenant_id": "another-workspace",
@@ -54,12 +54,12 @@ def test_typed_requirement_contact_uses_source_identity_and_requirement_copy(mon
     assert calls == [(42, "residential_rent_requirements", 9001, "workspace-1")]
     parsed = urlparse(response["contact_url"])
     assert parsed.netloc == "wa.me"
-    assert parsed.path == "/919876543210"
+    assert parsed.path == "/971501234567"
     message = parse_qs(parsed.query)["text"][0]
-    assert "your requirement" in message
+    assert "your 1 BHK requirement" in message
     assert "still active" in message
     assert "1 BHK" in message
-    assert "Bandra West" in message
+    assert "Dubai Marina" in message
     assert "Bathrooms" not in message
 
 

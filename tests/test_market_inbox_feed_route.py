@@ -32,6 +32,7 @@ def test_market_inbox_feed_route_delegates_to_market_items(monkeypatch):
         "broker_key": "919999999999",
         "intent": "SELL",
         "result_type": "requirements",
+        "market_localities": [],
         "tenant_id": "tenant-1",
     }]
 

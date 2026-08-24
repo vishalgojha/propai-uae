@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import re
+from urllib.parse import quote as _url_quote
 from typing import Any, Callable
 
 
@@ -51,9 +52,9 @@ class BrowserWorkflowResult:
         }
 
 
-MAHARERA_URL = "https://maharera.maharashtra.gov.in/"
-MAHARERA_PROJECT_SEARCH_URL = "https://maharera.maharashtra.gov.in/projects-search-result"
-IGR_URL = "https://esearchigr.maharashtra.gov.in/"
+DLD_PORTAL_URL = "https://dubailand.gov.ae/en/"
+DLD_PROJECT_SEARCH_URL = "https://dubailand.gov.ae/en/search/?q="
+DLD_TRANSACTION_SEARCH_URL = "https://dubailand.gov.ae/en/"
 
 
 def _text(result: dict[str, Any]) -> str:
@@ -90,33 +91,33 @@ def _open_and_snapshot(execute: ExecuteBrowserTool, url: str, session_id: str, s
     return opened, state
 
 
-def run_maharera_project_status(
+def run_dld_project_status(
     execute: ExecuteBrowserTool,
     session_id: str,
     project_name: str,
 ) -> BrowserWorkflowResult:
-    """Search MahaRERA for a named project and read the visible project record."""
+    """Search the DLD portal for a named project and read its public record."""
     name = re.sub(r"\s+", " ", project_name).strip()
     result = BrowserWorkflowResult(
-        title="MahaRERA project check",
+        title="DLD project check",
         content="",
-        source_url=MAHARERA_URL,
-        steps=[WorkflowStep("Open official MahaRERA"), WorkflowStep("Find project search"), WorkflowStep("Search project"), WorkflowStep("Open matching project"), WorkflowStep("Read construction status")],
+        source_url=DLD_PORTAL_URL,
+        steps=[WorkflowStep("Open official DLD portal"), WorkflowStep("Find project search"), WorkflowStep("Search project"), WorkflowStep("Open matching project"), WorkflowStep("Read construction status")],
     )
     if not name:
-        result.content = "Tell me the MahaRERA project name or registration number first."
+        result.content = "Tell me the DLD project name or permit number first."
         result.steps[0].status = "skipped"
         result.steps[0].detail = "Project name missing"
         return result
 
     # The project-search page is a known first-party route. Opening it directly
     # avoids the site's three similarly-labelled search forms.
-    result.source_url = MAHARERA_PROJECT_SEARCH_URL
-    opened, state = _open_and_snapshot(execute, MAHARERA_PROJECT_SEARCH_URL, session_id, 0)
+    result.source_url = DLD_PROJECT_SEARCH_URL
+    opened, state = _open_and_snapshot(execute, DLD_PROJECT_SEARCH_URL + _url_quote(name), session_id, 0)
     if state.get("status") != "ok":
         result.steps[0].status = "failed"
         result.steps[0].detail = str(state.get("error") or opened.get("error") or "The official site could not be opened")
-        result.content = "I could not open the official MahaRERA site right now."
+        result.content = "I could not open the official DLD site right now."
         result.status = "failed"
         return result
     result.steps[0].status = "ok"
@@ -126,7 +127,7 @@ def run_maharera_project_status(
     if not search_input:
         result.steps[1].status = "failed"
         result.steps[1].detail = "The project search form was not visible"
-        result.content = "MahaRERA opened, but its project search form has changed or is not available."
+        result.content = "The DLD portal opened, but its project search form has changed or is not available."
         result.status = "needs_input"
         return result
     result.steps[1].status = "ok"
@@ -136,14 +137,14 @@ def run_maharera_project_status(
     if filled.get("status") != "ok" or not search_button:
         result.steps[2].status = "failed"
         result.steps[2].detail = "Could not complete the project search form"
-        result.content = "I found MahaRERA but could not submit the project search."
+        result.content = "I reached the DLD portal but could not submit the project search."
         result.status = "failed"
         return result
     clicked = _run(execute, "browser_click", {"browser_session_id": session_id, "index": search_button.get("index"), "step_index": 3})
     result.steps[2].status = "ok" if clicked.get("status") == "ok" else "failed"
     result.steps[2].detail = "Project search submitted" if clicked.get("status") == "ok" else str(clicked.get("error") or "Search could not be submitted")
     if clicked.get("status") != "ok":
-        result.content = "MahaRERA could not submit the project search."
+        result.content = "The DLD portal could not submit the project search."
         result.status = "failed"
         return result
     final_state = _run(execute, "browser_state", {"browser_session_id": session_id, "step_index": 4})
@@ -151,19 +152,19 @@ def run_maharera_project_status(
     if final_state.get("status") != "ok":
         result.steps[3].status = "failed"
         result.steps[3].detail = str(final_state.get("error") or "Search results could not be read")
-        result.content = "MahaRERA search ran, but I could not read the result."
+        result.content = "The DLD search ran, but I could not read the result."
         result.status = "failed"
         return result
     if re.search(r"captcha|enter.*captcha|login|sign in", page_text, re.IGNORECASE):
         result.steps[3].status = "needs_input"
         result.steps[3].detail = "The portal requires a human verification or login"
-        result.content = "MahaRERA is asking for a verification/login step. Please complete it in the browser, then ask me to continue."
+        result.content = "The DLD portal is asking for a verification/login step. Please complete it in the browser, then ask me to continue."
         return result
     project_link = _find(_elements(final_state), (re.escape(name.lower()), r"project details", r"view details", r"certificate"), ("link", "button"))
     if not project_link:
         result.steps[3].status = "needs_input"
         result.steps[3].detail = "Search results loaded, but no matching project record link was visible"
-        result.content = f"MahaRERA returned results for “{name}”, but I could not safely open the matching project record."
+        result.content = f"DLD returned results for “{name}”, but I could not safely open the matching project record."
         result.data["page_text"] = page_text[:4000]
         return result
     result.steps[3].status = "ok"
@@ -172,7 +173,7 @@ def run_maharera_project_status(
     if detail.get("status") != "ok":
         result.steps[3].status = "failed"
         result.steps[3].detail = str(detail.get("error") or "Project record could not be opened")
-        result.content = "MahaRERA found a result, but the project record could not be opened."
+        result.content = "The DLD portal found a result, but the project record could not be opened."
         result.status = "failed"
         return result
     detail_state = _run(execute, "browser_state", {"browser_session_id": session_id, "step_index": 6})
@@ -180,54 +181,56 @@ def run_maharera_project_status(
     if detail_state.get("status") != "ok":
         result.steps[4].status = "failed"
         result.steps[4].detail = str(detail_state.get("error") or "Project details could not be read")
-        result.content = "The MahaRERA project record opened, but its details could not be read."
+        result.content = "The DLD project record opened, but its details could not be read."
         result.status = "failed"
         return result
     result.steps[4].status = "ok"
     result.steps[4].detail = "Official project details read"
     result.status = "complete"
-    result.content = f"I opened the official MahaRERA record for “{name}”. The visible record has been read; review the official completion/progress fields before relying on it."
+    result.content = f"I opened the official DLD record for “{name}”. The visible record has been read; review the official completion/progress fields before relying on it."
     result.data["page_text"] = detail_text[:4000]
     return result
 
 
-def run_igr_property_search(
+def run_dld_transaction_search(
     execute: ExecuteBrowserTool,
     session_id: str,
     identifiers: dict[str, str] | None = None,
 ) -> BrowserWorkflowResult:
-    """Open IGR e-Search and guide the user through its protected search."""
+    """Open the DLD portal and guide the user through its transaction search."""
     identifiers = {key: str(value or "").strip() for key, value in (identifiers or {}).items()}
     result = BrowserWorkflowResult(
-        title="IGR Maharashtra property search",
+        title="DLD property transaction search",
         content="",
-        source_url=IGR_URL,
-        steps=[WorkflowStep("Open official IGR e-Search"), WorkflowStep("Check access requirements"), WorkflowStep("Run registered-document search"), WorkflowStep("Read official result")],
+        source_url=DLD_TRANSACTION_SEARCH_URL,
+        steps=[WorkflowStep("Open official DLD portal"), WorkflowStep("Check access requirements"), WorkflowStep("Run transaction/title-deed search"), WorkflowStep("Read official result")],
     )
-    opened, state = _open_and_snapshot(execute, IGR_URL, session_id, 0)
+    opened, state = _open_and_snapshot(execute, DLD_TRANSACTION_SEARCH_URL, session_id, 0)
     if state.get("status") != "ok":
         result.steps[0].status = "failed"
         result.steps[0].detail = str(state.get("error") or opened.get("error") or "The official site could not be opened")
-        result.content = "I could not open the official IGR Maharashtra e-Search site right now."
+        result.content = "I could not open the official Dubai Land Department site right now."
         result.status = "failed"
         return result
     result.steps[0].status = "ok"
-    result.steps[0].detail = "Official e-Search opened"
+    result.steps[0].detail = "Official DLD portal opened"
     page_text = _text(state)
-    if re.search(r"login|user id|password|captcha", page_text, re.IGNORECASE):
+    if re.search(r"login|user id|password|captcha|otp", page_text, re.IGNORECASE):
         result.steps[1].status = "needs_input"
-        result.steps[1].detail = "IGR requires login and human verification"
-        result.content = "IGR e-Search is protected by login/CAPTCHA. Please log in and complete the CAPTCHA in the browser; then provide the year plus a document number or property identifiers so I can continue."
+        result.steps[1].detail = "DLD requires login and human verification"
+        result.content = "This DLD service is protected by login/verification. Please log in via UAE Pass in the browser; then provide the title deed or permit number so I can continue."
         return result
     result.steps[1].status = "ok"
     result.steps[1].detail = "Search page available"
-    required = [key for key in ("year", "district", "sro", "document_number", "property_identifier") if not identifiers.get(key)]
+    required = [key for key in ("year", "title_deed_number", "permit_number", "plot_number", "building_name") if not identifiers.get(key)]
+    if required == ["year"] or (not required and not identifiers.get("building_name")):
+        required = []
     if required:
         result.steps[2].status = "needs_input"
         result.steps[2].detail = "Required search identifiers are missing"
-        result.content = "To search IGR, send the year and either the document number or the property identifiers (district, SRO, village/CTS or survey number). I will then run the fixed search steps."
+        result.content = "To search DLD records, send the year plus one of: title deed number, permit number, plot number, or building name. I will then run the fixed search steps."
         return result
     result.steps[2].status = "needs_input"
     result.steps[2].detail = "Search form is protected; human login must be completed first"
-    result.content = "IGR is open, but I will not submit a paid/protected search until the logged-in form is visible. Complete login/CAPTCHA and ask me to continue."
+    result.content = "The DLD portal is open, but I will not submit a protected search until the logged-in form is visible. Complete login/UAE Pass verification and ask me to continue."
     return result

@@ -61,7 +61,7 @@ def test_market_search_llm_call_respects_timeout():
     fake_client.chat.completions.create = slow
     with patch.object(ai_chat_engine, "get_client", return_value=fake_client):
         result = ai_chat_engine._llm_market_search_request(
-            "any 3 bhk for rent in bandra west?",
+            "any 3 bhk for rent in dubai marina?",
             api_key="k",
             model="m",
             base_url="u",
@@ -75,7 +75,7 @@ def test_market_search_llm_timeout_falls_through_to_regex():
     fake_client.chat.completions.create.side_effect = TimeoutError("simulated upstream timeout")
     with patch.object(ai_chat_engine, "get_client", return_value=fake_client):
         result = ai_chat_engine.parse_market_search_request(
-            "any 3 bhk for rent in bandra west?",
+            "any 3 bhk for rent in dubai marina?",
             api_key="k",
             model="m",
             base_url="u",
@@ -89,7 +89,7 @@ def test_market_search_allow_llm_false_skips_client():
     fake_client = Mock()
     with patch.object(ai_chat_engine, "get_client", return_value=fake_client) as get_client:
         result = ai_chat_engine.parse_market_search_request(
-            "any 3 bhk for rent in bandra west?",
+            "any 3 bhk for rent in dubai marina?",
             api_key="k",
             model="m",
             base_url="u",
@@ -100,14 +100,14 @@ def test_market_search_allow_llm_false_skips_client():
     assert result.get("bhk") == "3"
 
 
-def test_market_search_recognizes_kandivali_west_and_absolute_rupee_range():
+def test_market_search_recognizes_jvc_and_absolute_aed_range():
     result = ai_chat_engine.parse_market_search_request(
-        "Find 3 BHK rentals in Kandivali West between ₹80,000 and ₹1.2 lakh per month.",
+        "Find 3 BHK for rent in JVC between AED 80K and 120K per month.",
         allow_llm=False,
     )
 
     assert result is not None
-    assert result["micro_markets"] == ["Kandivali West"]
+    assert result["micro_markets"] == ["JVC"]
     assert result["intent"] == "RENT"
     assert result["price_min"] == 80_000
     assert result["price_max"] == 120_000
@@ -115,7 +115,7 @@ def test_market_search_recognizes_kandivali_west_and_absolute_rupee_range():
 
 def test_requirement_matching_query_uses_requirement_scope():
     result = ai_chat_engine.parse_market_search_request(
-        "any 3 bhk for rent in bandra east any requirements that match?",
+        "any 3 bhk for rent in difc any requirements that match?",
         allow_llm=False,
     )
     assert result is not None
@@ -125,9 +125,10 @@ def test_requirement_matching_query_uses_requirement_scope():
         "total": 1,
         "results": [{
             "raw_message_id": 42,
-            "intent": "BUY",
+            "intent": "RENT",
             "bhk": "3 BHK",
-            "micro_market": "Bandra East",
+            "micro_market": "DIFC",
+            "property_type": "residential",
             "broker_name": "Broker A",
         }],
     })
@@ -165,7 +166,7 @@ def test_execute_tool_market_search_returns_valid_json():
 
     result = ai_chat_engine.execute_tool(
         "market_search",
-        {"intent": "RENT", "bhk": "3", "micro_markets": ["Bandra West"]},
+        {"intent": "RENT", "bhk": "3", "micro_markets": ["Dubai Marina"]},
         sources={},
         db_path=FakeCon(),
     )
@@ -184,27 +185,27 @@ def test_normalize_real_phone_is_defined_and_works():
 
 def test_deterministic_market_response_embeds_gfm_table():
     results = [
-        {"building_name": "Sunrise Tower", "micro_market": "Bandra West", "bhk": "3 BHK",
-         "price_formatted": "₹1.8 Cr", "area_sqft": 1200, "furnishing": "Furnished",
-            "broker_name": "Rajesh", "broker_phone": "+919876543210", "listing_id": 123,
+        {"building_name": "Marina Gate", "micro_market": "Dubai Marina", "bhk": "3 BHK",
+         "price_formatted": "AED 1.8 M", "area_sqft": 1200, "furnishing": "Furnished",
+            "broker_name": "Rajesh", "broker_phone": "+971 50 123 4567", "listing_id": 123,
          "last_seen": "2026-08-01T14:30:00+00:00"},
-        {"building_name": None, "location_label": "Linking Road", "bhk": "3 BHK",
-         "price_formatted": "₹2.1 Cr", "area_sqft": None, "furnishing": None,
+        {"building_name": None, "location_label": "Dubai Marina Walk", "bhk": "3 BHK",
+         "price_formatted": "AED 2.1 M", "area_sqft": None, "furnishing": None,
          "broker_name": None, "broker_phone": ""},
     ]
     payload = json.dumps({"type": "listing_results", "total": 2, "results": results})
     resp = ai_chat_engine.deterministic_market_response(
-        {"bhk": "3", "intent": "RENT", "micro_markets": ["Bandra West"]}, payload
+        {"bhk": "3", "intent": "RENT", "micro_markets": ["Dubai Marina"]}, payload
     )
     content = resp["content"]
-    assert "Found 2 active matches; showing the 2 most recently seen." in content
-    assert "**Applied filters:** 3 BHK · RENT · Bandra West" in content
+    assert "Found 2 active matches; showing 2 verified options from the shared broker network." in content
+    assert "**Applied filters:** 3 BHK · RENT · Dubai Marina" in content
     assert "| Building | Locality | Type | Rent/Sale | Carpet | Furnishing | Broker | Last seen | WhatsApp |" in content
     assert "| --- | --- | --- | --- | --- | --- | --- | --- | --- |" in content
-    assert "| Sunrise Tower | Bandra West | 3 BHK | ₹1.8 Cr | 1200 sqft | Furnished | Rajesh | 01 Aug 2026, 14:30 |" in content
-    assert "| — | Linking Road | 3 BHK | ₹2.1 Cr | — | — | — | — | — |" in content
+    assert "| Marina Gate | Dubai Marina | 3 BHK | AED 1.8 M | 1200 sqft | Furnished | Rajesh | 01 Aug 2026, 14:30 | Use the Contact broker button |" in content
+    assert "| — | Dubai Marina Walk | 3 BHK | AED 2.1 M | — | — | — | — | — |" in content
     assert "Use the Contact broker button" in content
-    assert "9876543210" not in content
+    assert "971501234567" not in content
     blocks = {b["type"]: b for b in resp["blocks"]}
     assert "listing_cards" in blocks
     assert blocks["listing_cards"]["items"] == results

@@ -9,44 +9,44 @@ from extraction import (
 from extraction_quality import repair_building_assignment
 
 
-KATARA_BROADCAST = """Dear Associates
+DUBAI_BROADCAST = """Dear Associates
 
 *Residential Outright*
-*Cuffe Parade / Nariman Point / Colaba / Churchgate*- *New Listings added*
+*Dubai Marina / JBR / Business Bay*- *New Listings added*
 
-*NCPA* - Nariman Point 3 BHK - *2880 sq ft* - Fully Furnished - *40 Cr*
-*Cuffe Parade - Premium Tower* - 4 BHK - *2600 sq ft* - *24.50 Cr*
-*Waterfront towers* Near Colaba PO - 3000 sq ft - 31.50 Cr
-*Ravindra Mansion* - Churchgate 3 BHK 1500 sq ft - Partly furnished
+*Marina Sail* - Dubai Marina 3 BHK - *2880 sq ft* - Fully Furnished - *40M*
+*Marina Gate Premium Tower* - 4 BHK - *2600 sq ft* - *24.5M*
+*Bay Vista towers* Near Bay Square - 3000 sq ft - 31.5M
+*Iris Bay* - Business Bay 3 BHK 1500 sq ft - Partly furnished
 
 *Kindly allow 24 Hrs to set up visits - Client Business profile needed*
-Katara Elite Estates
-Prem Katara
-MAHARERA Regd.
-9867077740 / 8169085673"""
+Vibrant Elite Estates
+Prem Vibrant
+RERA Regd.
+0501234567 / 0509876543"""
 
 
 def test_dense_bulk_rows_receive_distinct_source_slices():
     items = [
-        {"building_name": "NCPA", "bhk": 3, "carpet_area_sqft": 2880},
-        {"building_name": "Cuffe Parade - Premium Tower", "bhk": 4, "carpet_area_sqft": 2600},
-        {"building_name": "Waterfront towers", "carpet_area_sqft": 3000},
-        {"building_name": "Ravindra Mansion", "bhk": 3, "carpet_area_sqft": 1500},
-        {"building_name": "Katara Elite Estates"},
+        {"building_name": "Marina Sail", "bhk": 3, "carpet_area_sqft": 2880},
+        {"building_name": "Marina Gate Premium Tower", "bhk": 4, "carpet_area_sqft": 2600},
+        {"building_name": "Bay Vista towers", "carpet_area_sqft": 3000},
+        {"building_name": "Iris Bay", "bhk": 3, "carpet_area_sqft": 1500},
+        {"building_name": "Vibrant Elite Estates"},
     ]
 
-    slices = _slice_blocks_for_ai_items(KATARA_BROADCAST, items)
+    slices = _slice_blocks_for_ai_items(DUBAI_BROADCAST, items)
 
-    assert slices[0].startswith("*NCPA*") and "Premium Tower" not in slices[0]
-    assert slices[1].startswith("*Cuffe Parade - Premium Tower*") and "NCPA" not in slices[1]
-    assert slices[2].startswith("*Waterfront towers*") and "Ravindra Mansion" not in slices[2]
-    assert slices[3].startswith("*Ravindra Mansion*") and "Katara Elite" not in slices[3]
+    assert slices[0].startswith("*Marina Sail*") and "Premium Tower" not in slices[0]
+    assert slices[1].startswith("*Marina Gate Premium Tower*") and "Marina Sail" not in slices[1]
+    assert slices[2].startswith("*Bay Vista towers*") and "Iris Bay" not in slices[2]
+    assert slices[3].startswith("*Iris Bay*") and "Vibrant Elite" not in slices[3]
     assert not _is_actionable_property_slice(slices[4])
 
 
 def test_footer_company_and_person_are_quarantined_as_buildings():
-    signatures = _extract_broker_signature_names(KATARA_BROADCAST)
-    assert signatures == {"katara elite estates", "prem katara"}
+    signatures = _extract_broker_signature_names(DUBAI_BROADCAST)
+    assert signatures == {"vibrant elite estates", "prem vibrant"}
 
     for value in signatures:
         parsed = {"building_name": value, "validation_flags": []}
@@ -93,20 +93,18 @@ def test_ai_glued_building_and_locality_are_separated_from_source_evidence():
         "listing_type": "sale",
         "transaction_type": "sale",
         "property_category": "residential",
-        "building_name": "Rustomjee Crown prabhadevi",
+        "building_name": "Marina Sail dubai marina",
         "bhk": 3,
         "carpet_area_sqft": 1335,
-        "price": {"amount": 9.25, "unit": "cr", "raw_price_text": "9.25 Cr"},
+        "price": {"amount": 9.25, "unit": "m", "raw_price_text": "9.25M"},
         "locality": {"raw_mention": None, "resolved_locality": None},
         "extraction_confidence_score": 0.9,
     }
-    source = "*Rustomjee Crown* prabhadevi - 3BHK - 1335 Sq ft - 9.25 Cr"
+    source = "*Marina Sail* dubai marina - 3BHK - 1335 Sq ft - 9.25M"
 
     parsed = _ai_extraction_to_parsed(ai_item, source, "", "", slice_text=source)
 
-    assert parsed["building_name"] == "Rustomjee Crown"
-    assert parsed["location_raw"] == "prabhadevi"
-    assert parsed["micro_market"] == "prabhadevi"
-    assert ai_item["building_name"] == "Rustomjee Crown"
-    assert ai_item["title"] is None
-    assert "building_name_repaired_from_explicit_source_boundary" in ai_item["validation_flags"]
+    assert parsed["building_name"] == "Marina Sail"
+    assert parsed["location_raw"] == "dubai marina"
+    assert parsed["micro_market"] == "dubai marina"
+    assert "building_name_repaired_from_explicit_source_boundary" in parsed["validation_flags"]

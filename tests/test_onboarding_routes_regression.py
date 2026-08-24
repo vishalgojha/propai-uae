@@ -199,11 +199,17 @@ def test_group_cap_falls_back_on_internal_failure(monkeypatch):
 def test_onboarding_groups_loads_directory_without_overlap_work(monkeypatch):
     calls = {}
     monkeypatch.setattr(onboarding, "_resolve_active_organization_id", lambda user, tenant_id: "org-1")
+
     async def allow_permission(*args, **kwargs):
         return None
 
     monkeypatch.setattr(onboarding, "_require_org_permission", allow_permission)
     monkeypatch.setattr(onboarding, "_connection", lambda *args, **kwargs: {"broker_id": 42})
+    monkeypatch.setattr(
+        onboarding,
+        "storage",
+        SimpleNamespace(is_super_admin=lambda _user_id: False),
+    )
 
     def fake_directory(*args, **kwargs):
         calls["directory"] = kwargs
@@ -214,17 +220,14 @@ def test_onboarding_groups_loads_directory_without_overlap_work(monkeypatch):
         "_group_directory",
         fake_directory,
     )
-    monkeypatch.setattr(
-        onboarding,
-        "_cap_state",
-        lambda *args, **kwargs: {"tier": "pro", "cap": None, "unlimited": True},
-    )
 
     result = asyncio.run(onboarding.onboarding_groups(whatsapp_connection_id=33, user={"id": "u1"}, tenant_id="org-1"))
 
     assert result["groups"] == [{"group_jid": "1@g.us"}]
     assert calls["directory"]["include_overlap"] is False
-    assert result["unlimited"] is True
+    assert result["tier"] == "workspace"
+    assert result["cap"] is None
+    assert result["unlimited"] is False
 
 
 def test_opt_out_persists_when_directory_refresh_is_unavailable(monkeypatch):

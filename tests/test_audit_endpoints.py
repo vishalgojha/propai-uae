@@ -84,8 +84,8 @@ def test_duplicate_audit_reads_current_tenant_messages(monkeypatch):
     def rows(sql, params=()):
         calls.append((sql, params))
         return [
-            {"group_id": "Bandra Brokers", "group_name": "Bandra Brokers", "error": "", "status": "captured"},
-            {"group_id": "Bandra Brokers West", "group_name": "Bandra Brokers West", "error": "", "status": "captured"},
+            {"group_id": "Dubai Marina Brokers", "group_name": "Dubai Marina Brokers", "error": "", "status": "captured"},
+            {"group_id": "Dubai Marina Brokers West", "group_name": "Dubai Marina Brokers West", "error": "", "status": "captured"},
         ]
 
     monkeypatch.setattr(audit_mod, "_audit_rows", rows)
@@ -111,7 +111,7 @@ def test_audit_group_display_name_does_not_query_storage(monkeypatch):
     monkeypatch.setattr(audit_mod, "storage", SimpleNamespace(db=Database()))
     monkeypatch.setattr(_common, "storage", SimpleNamespace(db=Database()))
 
-    assert audit_mod._audit_group_display_name("Bandra Brokers") == "Bandra Brokers"
+    assert audit_mod._audit_group_display_name("Dubai Marina Brokers") == "Dubai Marina Brokers"
     assert audit_mod._audit_group_display_name("120363123456789@g.us") == "WhatsApp Group 6789"
 
 
@@ -130,7 +130,7 @@ def test_audit_insights_is_tenant_scoped(monkeypatch):
     result = audit_mod.audit_insights(user={"id": "user"}, tenant_id="tenant-a")
 
     assert len(row_calls) == 4
-    assert all("tenant_id = ?" in sql.lower() for sql, _ in row_calls)
+    assert all("tenant_id = $" in sql.lower() for sql, _ in row_calls)
     assert all(params and params[0] == "tenant-a" for _, params in row_calls)
     assert result["daily_flow"] == []
     assert result["markets"] == []
@@ -144,7 +144,7 @@ def test_audit_groups_uses_named_columns_from_supabase_json_rows(monkeypatch):
     result_sets = iter([
         [{
             "last_activity": "2026-07-18T12:00:00Z",
-            "group_name": "Bandra Brokers",
+            "group_name": "Dubai Marina Brokers",
             "senders_count": 4,
             "messages": 12,
         }],
@@ -152,7 +152,7 @@ def test_audit_groups_uses_named_columns_from_supabase_json_rows(monkeypatch):
             "unknown_locations": 1,
             "markets_count": 2,
             "listings": 6,
-            "group_name": "Bandra Brokers",
+            "group_name": "Dubai Marina Brokers",
             "requirements": 2,
             "observations": 8,
             "identities": 4,
@@ -173,15 +173,15 @@ def test_audit_groups_uses_named_columns_from_supabase_json_rows(monkeypatch):
     assert len(calls) == 4
     assert "po.raw_message_id::text || ':' || COALESCE(po.listing_index, 0)::text" in calls[1][0]
     assert result["total_unique_senders"] == 4
-    assert result["groups"][0]["name"] == "Bandra Brokers"
+    assert result["groups"][0]["name"] == "Dubai Marina Brokers"
     assert result["groups"][0]["messages"] == 12
     assert result["groups"][0]["observations"] == 8
     assert result["groups"][0]["active_brokers"] == 4
 
 
 def test_audit_building_names_reject_parser_style_false_positives():
-    assert audit_mod._clean_audit_building_name(" *BRIGHT LAND` ") == "BRIGHT LAND"
-    assert audit_mod._clean_audit_building_name(": Shadaab Tower*") == "Shadaab Tower"
+    assert audit_mod._clean_audit_building_name(" *BURJ VISTA` ") == "BURJ VISTA"
+    assert audit_mod._clean_audit_building_name(": Cayan Tower*") == "Cayan Tower"
     assert audit_mod._clean_audit_building_name("Floor: Call") is None
     assert audit_mod._clean_audit_building_name("Photo Available") is None
     assert audit_mod._clean_audit_building_name("Well-Maintained") is None
@@ -194,21 +194,23 @@ def test_audit_buildings_use_explicit_tenant_scoped_mentions(monkeypatch):
     def rows(sql, params=()):
         calls.append((sql, params))
         return [
-            {"building_name": "Arasu CHS", "occurrences": 3},
-            {"occurrences": 2, "building_name": " arasu chs* "},
+            {"building_name": "Marina Gate", "occurrences": 3},
+            {"occurrences": 2, "building_name": " marina gate* "},
             {"building_name": "on call", "occurrences": 12},
-            {"building_name": ": Shadaab Tower*", "occurrences": 2},
+            {"building_name": ": Cayan Tower*", "occurrences": 2},
         ]
 
-    monkeypatch.setattr(audit_mod, "_audit_rows", rows)
+    # _audit_buildings_for_group is defined in routers.common, so the row
+    # loader it closes over lives there rather than on the audit router.
+    monkeypatch.setattr(_common, "_audit_rows", rows)
 
     result = audit_mod._audit_buildings_for_group(
         "tenant-a", "group-jid", "Royal Realtors"
     )
 
     assert result == [
-        {"building_name": "Arasu CHS", "occurrences": 5},
-        {"building_name": "Shadaab Tower", "occurrences": 2},
+        {"building_name": "Marina Gate", "occurrences": 5},
+        {"building_name": "Cayan Tower", "occurrences": 2},
     ]
     assert len(calls) == 1
     assert "r.tenant_id = ?" in calls[0][0]
@@ -231,6 +233,7 @@ def test_audit_overlap_uses_named_columns_from_supabase_json_rows(monkeypatch):
 
 
 def test_search_coverage_audit_flags_missing_listing_cards(monkeypatch):
+    monkeypatch.setattr(audit_mod, "storage", SimpleNamespace(db=None))
     monkeypatch.setattr(
         audit_mod.chat_engine,
         "execute_tool",
@@ -239,7 +242,7 @@ def test_search_coverage_audit_flags_missing_listing_cards(monkeypatch):
 
     result = audit_mod.audit_search_coverage(
         audit_mod.SearchCoverageRequest(
-            query="any office space on rent in bandra west?",
+            query="any office space on rent in difc?",
             response={
                 "blocks": [
                     {
@@ -270,11 +273,11 @@ def test_phone_list_resolves_authenticated_workspace(monkeypatch):
     class FakeStorage:
         def list_org_whatsapp_connections(self, org_id):
             seen.append(org_id)
-            return [{"id": 13, "broker_id": "phone-real", "phone_number": "919820056180"}]
+            return [{"id": 13, "broker_id": "phone-real", "phone_number": "971501234567"}]
 
         def list_org_whatsapp_phone_directory(self, org_id):
             assert org_id == "workspace-real"
-            return [{"broker_id": "phone-real", "phone_number": "919820056180", "display_label": "Owner"}]
+            return [{"broker_id": "phone-real", "phone_number": "971501234567", "display_label": "Owner"}]
 
     async def inline_to_thread(function, *args, **kwargs):
         return function(*args, **kwargs)
@@ -289,8 +292,8 @@ def test_phone_list_resolves_authenticated_workspace(monkeypatch):
     ))
 
     assert seen == ["workspace-real"]
-    assert result["phones"][0]["phone_number"] == "919820056180"
-    assert result["phones"][0]["registered_phone_number"] == "919820056180"
+    assert result["phones"][0]["phone_number"] == "971501234567"
+    assert result["phones"][0]["registered_phone_number"] == "971501234567"
 
 
 def test_create_phone_reuses_workspace_placeholder(monkeypatch):
@@ -327,14 +330,14 @@ def test_create_phone_reuses_workspace_placeholder(monkeypatch):
     ))
 
     assert result["id"] == 19
-    assert connection_calls[0][2]["params"]["broker_id"] == "phone-placeholder"
+    assert connection_calls[0][2]["headers"]["X-Broker-Id"] == "phone-placeholder"
 
 
 def test_phone_list_marks_missing_session_as_stopped_when_ingestor_is_reachable(monkeypatch):
     class FakeStorage:
         def list_org_whatsapp_connections(self, org_id):
             assert org_id == "workspace-real"
-            return [{"id": 13, "broker_id": "phone-real", "phone_number": "919820056180"}]
+            return [{"id": 13, "broker_id": "phone-real", "phone_number": "971501234567"}]
 
         def list_org_whatsapp_phone_directory(self, org_id):
             return []
@@ -365,7 +368,7 @@ def test_phone_list_marks_missing_session_as_stopped_when_ingestor_is_reachable(
 def test_phone_list_exposes_ingestor_auth_configuration_error(monkeypatch):
     class FakeStorage:
         def list_org_whatsapp_connections(self, org_id):
-            return [{"id": 13, "broker_id": "phone-real", "phone_number": "919820056180"}]
+            return [{"id": 13, "broker_id": "phone-real", "phone_number": "971501234567"}]
 
         def list_org_whatsapp_phone_directory(self, org_id):
             return []
@@ -408,7 +411,7 @@ def test_delete_phone_removes_ingestor_session_and_workspace_record(monkeypatch)
         return {"id": phone_id, "organization_id": org_id, "broker_id": "phone-real"}
 
     async def ingestor(method, path, **kwargs):
-        calls.append((method, path, kwargs["params"]["broker_id"]))
+        calls.append((method, path, kwargs["headers"]["X-Broker-Id"]))
         return "http://ingestor:3001", httpx.Response(200, json={"ok": True})
 
     async def inline_to_thread(function, *args, **kwargs):
@@ -468,14 +471,14 @@ def test_pair_code_rejects_phone_already_saved_in_workspace(monkeypatch):
                 {
                     "id": 18,
                     "broker_id": "phone-canonical",
-                    "phone_number": "+91 97737 57759",
+                    "phone_number": "+971 50 123 4567",
                     "instance_name": "Kapil Gopal Ojha",
                 },
                 {
                     "id": 22,
                     "broker_id": "phone-placeholder",
                     "phone_number": "Unpaired:phone-placeholder",
-                    "instance_name": "919773757759",
+                    "instance_name": "971501234567",
                 },
             ]
 
@@ -506,7 +509,7 @@ def test_pair_code_rejects_phone_already_saved_in_workspace(monkeypatch):
     with pytest.raises(ws_mod.HTTPException) as exc:
         asyncio.run(ws_mod.pair_code_phone(
             22,
-            {"phone": "919773757759"},
+            {"phone": "971501234567"},
             user={"id": "user"},
             tenant_id="workspace-real",
         ))
@@ -556,7 +559,7 @@ def test_pair_code_calls_pairing_without_connecting_first(monkeypatch):
     async def run_pairing():
         result = await ws_mod.pair_code_phone(
             22,
-            {"phone": "919773757759"},
+            {"phone": "971501234567"},
             user={"id": "user"},
             tenant_id="workspace-real",
         )

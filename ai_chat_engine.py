@@ -210,7 +210,7 @@ class ConversationMemory:
             bhk_m = re.search(r"\b(\d+)\s*bhk\b", lowered)
             if bhk_m:
                 bhk = bhk_m.group(1)
-            price_m = re.search(r"(?:under|below|upto|up to|max)?\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|lakh|lac|k)?", lowered)
+            price_m = re.search(r"(?:under|below|upto|up to|max)?\s*(?:aed|dhs)?\s*(\d+(?:\.\d+)?)\s*(m|mn|million|k)?", lowered)
             if price_m:
                 prices.append(price_m.group(0).strip())
             broker_m = re.search(r"\b(call|contact|message|text)\s+(\w+)", lowered)
@@ -500,13 +500,15 @@ def build_conversational_system_prompt(broker=None):
     """Minimal system prompt for pure conversation — no data, no tools, no JSON contract."""
     identity = _read_prompt_file("identity.md")
     now = datetime.datetime.now()
-    time_str = now.strftime("%A, %d %B %Y at %I:%M %p IST")
+    time_str = now.strftime("%A, %d %B %Y at %I:%M %p GST")
     broker_line = _broker_context_block(broker)
-    return f"""{identity or "You are PropAI, a Mumbai real-estate broker assistant."}
+    return f"""{identity or "You are PropAI, a Dubai real-estate broker assistant."}
 
 Current date and time: {time_str}
 
-You are PropAI's conversational mode. Do NOT use any tools or search any databases.{broker_line}
+You are PropAI's conversational mode. Do NOT use any tools or search any databases.
+
+Users may write in English, Arabic, Hindi/Hinglish, Urdu or Russian - always reply in the same language the user used in their latest message.{broker_line}
 
 The user is just chatting. They may ask about buildings, localities, or property types — treat these as queries, not self-introductions. For example, "in Kalpataru Sparkle" means they're asking about that building, not saying their name is Kalpataru Sparkle.
 
@@ -523,9 +525,9 @@ def _legacy_build_system_prompt(sources, broker=None):
     identity = _read_prompt_file("identity.md")
     bootstrap = _read_prompt_file("bootstrap.md")
     now = datetime.datetime.now()
-    time_str = now.strftime("%A, %d %B %Y at %I:%M %p IST")
+    time_str = now.strftime("%A, %d %B %Y at %I:%M %p GST")
     broker_line = _broker_context_block(broker)
-    return f"""{identity or "You are PropAI, a Mumbai real-estate broker assistant."}
+    return f"""{identity or "You are PropAI, a Dubai real-estate broker assistant."}
 
 {bootstrap}
 
@@ -533,12 +535,14 @@ Current date and time: {time_str}{broker_line}
 
 You are also PropAI's Dynamic AI Workspace for structured market database work.
 
+Users may write in English, Arabic, Hindi/Hinglish, Urdu or Russian - always reply in the same language the user used in their latest message.
+
 AVAILABLE DATA:
 {overview}
 
 LISTING CARD FORMAT (when showing listings in workspace UI):
 Building Name
-₹Price / month (or sale)
+AED Price / year (or sale)
 BHK | Area | Furnishing
 Micro Market | Building | Broker
 First Seen | Last Seen | Observed (count messages)
@@ -561,13 +565,13 @@ budget, furnishing, intent — you MUST call market_search and use the JSON cont
 a requirement message the way you'd acknowledge a name introduction.
 
 Example — WRONG:
-User: "I have a client looking for a fully furnished 3 bhk in Bandra West, budget up to 4 lakh/month"
+User: "I have a client looking for a fully furnished 2BR in Dubai Marina, budget up to 120K/year"
 Bad: "Nice to meet you! How can I help?"
 
 Example — RIGHT:
-User: "I have a client looking for a fully furnished 3 bhk in Bandra West, budget up to 4 lakh/month"
-Good: [calls market_search with intent=RENT, bhk=3, building/locality=Bandra West,
-furnishing=Furnished, price_max=400000] then returns the JSON contract with listing_cards.
+User: "I have a client looking for a fully furnished 2BR in Dubai Marina, budget up to 120K/year"
+Good: [calls market_search with intent=RENT, bhk=2, building/locality=Dubai Marina,
+furnishing=Furnished, price_max=120000] then returns the JSON contract with listing_cards.
 
 FINAL RESPONSE CONTRACT:
 - For greetings, casual chat, small talk, introductions, or anything you can answer from conversation: SKIP this contract entirely. Return plain text. No tools. No JSON.
@@ -578,7 +582,7 @@ FINAL RESPONSE CONTRACT:
     "blocks": [{{"type": "summary", ...}}],
     "sources": ["overview", "portal_listings"],
     "status_steps": ["Searching listings", "Ranking results", "Rendering"],
-    "trace": {{"sources": ["WhatsApp groups", "buildings"], "last_updated": "IST timestamp"}}
+    "trace": {{"sources": ["WhatsApp groups", "buildings"], "last_updated": "GST timestamp"}}
   }}
 - Use only these block types:
   summary, listing_cards, buyer_cards, broker_cards, building_card, market_card, table, timeline, map, comparison, original_messages, ai_suggestions, charts, export_panel, promotion_preview, property_gallery, related_listings, matching_buyers, suggested_questions, error_state, empty_state, loading
@@ -609,23 +613,23 @@ Always offer: Export CSV | Export Excel | Export PDF | Copy WhatsApp Summary | C
 
 PRICE UNIT NORMALIZATION (IMPORTANT):
 When user mentions prices, normalize to standard units:
-- L = Lac = Lakh = Lakhs (same thing, just different spellings)
-- Cr = Crore = Karod = Crores = Karods (same thing)
-- K = Thousand = Hazaar (same thing)
-- ₹ or Rs or Rupees = Absolute rupees (e.g., ₹450000 = 4.5 Lakhs)
+- M = Mn = Million = Millions (same thing)
+- K = Thousand (same thing)
+- AED or Dhs or Dirhams = Absolute dirhams (e.g., AED 1500000 = 1.5M)
+- Rents are ANNUAL totals unless explicitly marked "/month".
 
-When you see a price like "3L" or "3 Lac" or "3 Lakh", treat it as ₹3,00,000 (3 Lakhs).
-When you see "1.5Cr" or "1.5 Crore" or "1.5 Karod", treat it as ₹1,50,00,000 (1.5 Crores).
-When user says "3 to 4.5 lakh budget", they mean ₹3,00,000 to ₹4,50,000.
+When you see a price like "85K", treat it as AED 85,000 per year.
+When you see "1.5M" or "1.5 Million", treat it as AED 1,500,000.
+When user says "80 to 120K budget", they mean AED 80,000 to AED 120,000 per year.
 
 If you're unsure about a unit, use ask_clarification to ask the user.
 When user teaches you a new unit mapping, use save_unit_alias to remember it.
 
-You can also learn from context: if user says "5L rent", it's ₹5,00,000/month.
+You can also learn from context: if user says "85K rent", it's AED 85,000/year.
 Common patterns:
-- "3/4 BHK for rent in Bandra 3-4.5 lakh" = 3 BHK or 4 BHK, rent ₹3,00,000-4,50,000/month
-- "2 Cr flat" = ₹2,00,00,000 purchase price
-- "15000 monthly" = ₹15,000/month (absolute rupees)"""
+- "2BR for rent in Marina 100-120K" = 2 bedrooms, rent AED 100,000-120,000/year
+- "2M apartment" = AED 2,000,000 purchase price
+- "85000 yearly" = AED 85,000/year (absolute dirhams)"""
 
 
 def build_system_prompt(sources, broker=None, workspace_settings=None):
@@ -636,7 +640,7 @@ def build_system_prompt(sources, broker=None, workspace_settings=None):
     """
     identity = _read_prompt_file("identity.md")
     bootstrap = _read_prompt_file("bootstrap.md")
-    now = datetime.datetime.now().strftime("%A, %d %B %Y at %I:%M %p IST")
+    now = datetime.datetime.now().strftime("%A, %d %B %Y at %I:%M %p GST")
     broker_line = _broker_context_block(broker)
     browser_enabled = bool(getattr(workspace_settings, "browser_enabled", False)) if workspace_settings else False
     browser_capability = """BROWSER CAPABILITY:
@@ -653,13 +657,17 @@ status if the portal blocks access.
 Browser actions are disabled for this workspace. Do not claim to have opened
 or inspected a website; explain that browser access must be enabled first.
 """
-    return f"""{identity or 'You are PropAI, a Mumbai real-estate broker assistant.'}
+    return f"""{identity or 'You are PropAI, a Dubai real-estate broker assistant.'}
 
 {bootstrap}
 
 Current date and time: {now}{broker_line}
 
-You are in the PropAI workspace. Available sources are summarized below; use
+You are in the PropAI workspace.
+
+Users may write in English, Arabic, Hindi/Hinglish, Urdu or Russian - always reply in the same language the user used in their latest message.
+
+Available sources are summarized below; use
 only retrieved values as facts. Concrete property and requirement requests are
 searched against the live tenant-scoped marketplace before you answer. Never
 claim that the database is unavailable when verified search results are present.
@@ -1143,7 +1151,7 @@ def _build_tools(sources, prefer_supabase_agent: bool = False, browser_enabled: 
             "type": "function",
             "function": {
                 "name": "ask_clarification",
-                "description": "Ask the user for clarification when you're confused about units, terms, or ambiguous input. Use this when you don't understand what the user means (e.g., '5L' could be 5 Lakhs or 5 Lakh rupees).",
+                "description": "Ask the user for clarification when you're confused about units, terms, or ambiguous input. Use this when you don't understand what the user means (e.g., '1.5M' could mean 1.5 million AED).",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -1171,12 +1179,12 @@ def _build_tools(sources, prefer_supabase_agent: bool = False, browser_enabled: 
                     "properties": {
                         "alias": {
                             "type": "string",
-                            "description": "The term/alias to remember (e.g., 'L', 'lakh', 'karod')",
+                            "description": "The term/alias to remember (e.g., 'M', 'mn', 'K')",
                         },
                         "canonical_unit": {
                             "type": "string",
                             "enum": ["L", "Cr", "K", "abs"],
-                            "description": "What unit this maps to: L=Lakhs, Cr=Crores, K=Thousands, abs=Absolute rupees",
+                            "description": "What unit this maps to: M=Millions, K=Thousands, abs=Absolute dirhams",
                         },
                     },
                     "required": ["alias", "canonical_unit"],
@@ -1215,15 +1223,18 @@ def _build_tools(sources, prefer_supabase_agent: bool = False, browser_enabled: 
 def _parse_price(val):
     if isinstance(val, (int, float)):
         return float(val)
-    s = str(val).replace("₹", "").replace(",", "").strip()
-    if "cr" in s.lower():
-        return float(s.lower().replace("cr", "").strip()) * 1_00_00_000
-    if "l" in s.lower() and not any(c.isdigit() for c in s.lower().replace("l", "")):
-        return float(s.lower().replace("l", "").strip()) * 1_00_000
-    try:
-        return float(s)
-    except ValueError:
-        return None
+    s = str(val).replace(",", "").strip().lower()
+    for token in ("aed", "dhs", "dirham"):
+        s = s.replace(token, "").strip()
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(m|mn|millions?|millions|k)?", s)
+    if not m:
+        try:
+            return float(s)
+        except ValueError:
+            return None
+    amount = float(m.group(1))
+    multipliers = {"m": 1_000_000, "mn": 1_000_000, "million": 1_000_000, "millions": 1_000_000, "k": 1_000}
+    return amount * multipliers.get(m.group(2) or "", 1)
 
 
 def _prepare_listings(df):
@@ -1355,15 +1366,15 @@ def _market_search_tool():
                     "micro_markets": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Alternative micro markets to search together, e.g. ['Bandra East', 'BKC']",
+                        "description": "Alternative micro markets to search together, e.g. ['JVC', 'Dubai Marina']",
                     },
                     "price_max": {
                         "type": "string",
-                        "description": "Maximum price filter (in rupees, e.g. 20000000 for ₹2 Cr)",
+                        "description": "Maximum price filter (in AED per year for rents, e.g. 2000000 for AED 2M)",
                     },
                     "price_min": {
                         "type": "string",
-                        "description": "Minimum price filter (in rupees)",
+                        "description": "Minimum price filter (in AED per year for rents)",
                     },
                     "furnishing": {
                         "type": "string",
@@ -1454,12 +1465,12 @@ def apply_filters(df, filters):
 def fmt_price(val):
     try:
         v = float(val)
-        if v >= 1_00_00_000:
-            return f"₹{v / 1_00_00_000:.2f} Cr"
-        elif v >= 1_00_000:
-            return f"₹{v / 1_00_000:.1f} L"
+        if v >= 1_000_000:
+            return f"AED {v / 1_000_000:.2f}M"
+        elif v >= 1_000:
+            return f"AED {round(v / 1_000):g}K"
         else:
-            return f"₹{v:,.0f}"
+            return f"AED {v:,.0f}"
     except (ValueError, TypeError):
         return str(val)
 
@@ -1473,24 +1484,13 @@ def fmt_listing_price(val, unit=None, intent=None):
         return str(val)
 
     normalized_unit = str(unit or "").strip().lower()
-    suffix = "/month" if str(intent or "").upper() == "RENT" else ""
-    if str(intent or "").upper() == "RENT" and normalized_unit in {"", "none", "null", "abs"}:
-        if 0 < v < 100:
-            return f"₹{v:g} L{suffix}"
-        if 100 <= v < 1000:
-            return f"₹{v:g} K{suffix}"
-        if 1000 <= v < 10000:
-            return f"₹{v / 1000:g} L{suffix}"
-    if normalized_unit in {"lac", "lakh", "l"}:
-        return f"₹{v:g} L{suffix}"
-    if normalized_unit in {"cr", "crore"}:
-        return f"₹{v:g} Cr"
+    suffix = "/yr" if str(intent or "").upper() == "RENT" else ""
+    if normalized_unit in {"m", "mn", "million", "millions"}:
+        return f"AED {v:g}M{suffix}"
     if normalized_unit == "k":
-        return f"₹{v:g} K{suffix}"
-    if normalized_unit in {"abs", "absolute", "rupees", "rs", "inr"}:
+        return f"AED {v:g}K{suffix}"
+    if normalized_unit in {"abs", "absolute", "aed", "dhs", "dirhams"}:
         return f"{fmt_price(v)}{suffix}"
-    if str(intent or "").upper() == "RENT" and 0 < v < 100:
-        return f"₹{v:g} L{suffix}"
     return f"{fmt_price(v)}{suffix}"
 
 
@@ -1498,13 +1498,12 @@ def fmt_listing_price(val, unit=None, intent=None):
 # verified results, but it must never be the component that decides whether a
 # concrete property request reaches the live marketplace.
 _MARKET_LOCALITIES = (
-    "Bandra West", "Bandra East", "Bandra", "BKC", "Khar West", "Khar",
-    "Santacruz West", "Santacruz East", "Santacruz", "Andheri West",
-    "Andheri East", "Andheri", "Juhu", "Vile Parle West", "Vile Parle East",
-    "Worli", "Lower Parel", "Prabhadevi", "Dadar", "Powai", "Kalina",
-    "Pali Hill", "Lokhandwala", "Goregaon West", "Goregaon East", "Malad West",
-    "Malad East", "Kandivali West", "Kandivali East", "Kandivali", "Chembur",
-    "Navi Mumbai", "Thane",
+    "Dubai Marina", "JBR", "Downtown Dubai", "Business Bay", "DIFC",
+    "Palm Jumeirah", "JVC", "JVT", "JLT", "Dubai Hills Estate",
+    "Arabian Ranches", "The Springs", "The Meadows", "The Greens",
+    "Al Barsha", "Al Furjan", "Deira", "Bur Dubai", "Karama", "Mirdif",
+    "Silicon Oasis", "Sports City", "Motor City", "Studio City",
+    "Emirates Hills", "City Walk", "Al Wasl", "Satwa",
 )
 
 
@@ -1587,14 +1586,12 @@ def _extract_building_candidate(text: str) -> str | None:
     return cleaned[0] if cleaned else None
 
 
-def _market_price_to_rupees(value: str, unit: str) -> float:
+def _market_price_to_aed(value: str, unit: str) -> float:
     amount = float(value.replace(",", ""))
     unit = unit.lower()
-    if unit in {"cr", "crore", "crores", "karod", "karods"}:
-        return amount * 1_00_00_000
-    if unit in {"l", "lac", "lacs", "lakh", "lakhs"}:
-        return amount * 1_00_000
-    if unit in {"k", "thousand", "thousands", "hazaar", "hazar"}:
+    if unit in {"m", "mn", "million", "millions"}:
+        return amount * 1_000_000
+    if unit in {"k", "thousand", "thousands"}:
         return amount * 1_000
     return amount
 
@@ -1656,7 +1653,7 @@ def _llm_market_search_request(text: str, api_key: str = "", model: str = "", ba
         "between_start and between_end; the application resolves geography. "
         "Keys: bhk, intent (RENT/SELL/null), furnishing, price_min, price_max, "
         "micro_markets (explicit names only), between_start, between_end. "
-        "Prices must be numeric rupees. User query: " + text
+        "Prices must be numeric dirhams (AED annual totals for rents). User query: " + text
     )
     try:
         response = get_client(api_key=api_key, base_url=base_url or None).chat.completions.create(
@@ -1773,47 +1770,47 @@ def parse_market_search_request(
     elif re.search(r"\bfully\s+furnished\b|\bfurnished\b", lower):
         args["furnishing"] = "Furnished"
 
-    amount_pattern = r"(\d+(?:\.\d+)?)\s*(cr|crore|crores|karod|karods|l|lac|lacs|lakh|lakhs|k|thousand|thousands|hazaar|hazar)\b"
+    amount_pattern = r"(\d+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)\b"
     range_match = re.search(
         rf"(?:between\s+)?{amount_pattern}\s*(?:to|[-–])\s*{amount_pattern}", lower
     )
     if not range_match:
-        # Accept ordinary user phrasing such as “between ₹80,000 and ₹1.2
-        # lakh”. Units may differ or be omitted when the currency symbol and
-        # absolute rupee amount make the value unambiguous.
+        # Accept ordinary user phrasing such as “between 80,000 and 120K”.
+        # Units may differ or be omitted when the currency marker and the
+        # absolute dirham amount make the value unambiguous.
         flexible_amount = (
-            r"(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)\s*"
-            r"(cr|crore|crores|karod|karods|l|lac|lacs|lakh|lakhs|k|"
-            r"thousand|thousands|hazaar|hazar)?"
+            r"(?:aed|dhs\s*)?([\d,]+(?:\.\d+)?)\s*"
+            r"(m|mn|millions?|k|"
+            r"thousands?)?"
         )
         range_match = re.search(
             rf"(?:between\s+)?{flexible_amount}\s*(?:to|and|[-–])\s*"
-            rf"(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)\s*"
-            rf"(cr|crore|crores|karod|karods|l|lac|lacs|lakh|lakhs|k|"
-            r"thousand|thousands|hazaar|hazar)?\b",
+            rf"(?:aed|dhs\s*)?([\d,]+(?:\.\d+)?)\s*"
+            rf"(m|mn|millions?|k|"
+            r"thousands?)?\b",
             lower,
         )
         if range_match and not (range_match.group(2) or range_match.group(4)):
             range_match = None
     if range_match:
-        first = _market_price_to_rupees(range_match.group(1), range_match.group(2))
-        second = _market_price_to_rupees(range_match.group(3), range_match.group(4))
+        first = _market_price_to_aed(range_match.group(1), range_match.group(2))
+        second = _market_price_to_aed(range_match.group(3), range_match.group(4))
         args["price_min"], args["price_max"] = sorted((first, second))
     else:
         # Broker shorthand commonly writes "6 to 8 Cr" (unit only once).
         shared_unit_range = re.search(
             r"(?:between\s+)?(\d+(?:\.\d+)?)\s*(?:to|[-–])\s*"
-            r"(\d+(?:\.\d+)?)\s*(cr|crore|crores|karod|karods|l|lac|lacs|lakh|lakhs|k|thousand|thousands|hazaar|hazar)\b",
+            r"(\d+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)\b",
             lower,
         )
         if shared_unit_range:
-            first = _market_price_to_rupees(shared_unit_range.group(1), shared_unit_range.group(3))
-            second = _market_price_to_rupees(shared_unit_range.group(2), shared_unit_range.group(3))
+            first = _market_price_to_aed(shared_unit_range.group(1), shared_unit_range.group(3))
+            second = _market_price_to_aed(shared_unit_range.group(2), shared_unit_range.group(3))
             args["price_min"], args["price_max"] = sorted((first, second))
             return args
-        ceiling = re.search(rf"(?:under|below|upto|up to|max(?:imum)?|budget\s*(?:of)?\s*)\s*(?:₹|rs\.?\s*)?{amount_pattern}", lower)
+        ceiling = re.search(rf"(?:under|below|upto|up to|max(?:imum)?|budget\s*(?:of)?\s*)\s*(?:aed|dhs\s*)?{amount_pattern}", lower)
         if ceiling:
-            args["price_max"] = _market_price_to_rupees(ceiling.group(1), ceiling.group(2))
+            args["price_max"] = _market_price_to_aed(ceiling.group(1), ceiling.group(2))
 
     return args
 
@@ -2153,7 +2150,7 @@ _PROPERTY_INTENT_RE = re.compile(
     r"rent|rental|rentals|lease|sale|sell|buy|purchase|furnished|unfurnished|"
     r"building|tower|society|project|office|shop|commercial|requirement|"
     r"available|looking for|find|search|price|budget|area|sqft|bhk|"
-    r"thousand|lakh|lac|crore)\b",
+    r"thousand|million|k)\b",
     re.IGNORECASE,
 )
 
@@ -2219,31 +2216,31 @@ def relaxed_market_query(text: str) -> dict:
     elif re.search(r"\bfully\s+furnished\b|\bfurnished\b", lower):
         args["furnishing"] = "Furnished"
 
-    amount_pattern = r"(\d+(?:\.\d+)?)\s*(cr|crore|crores|karod|karods|l|lac|lacs|lakh|lakhs|k|thousand|thousands|hazaar|hazar)\b"
+    amount_pattern = r"(\d+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)\b"
     range_match = re.search(
         rf"(?:between\s+)?{amount_pattern}\s*(?:to|[-–])\s*{amount_pattern}", lower
     )
     if range_match:
-        first = _market_price_to_rupees(range_match.group(1), range_match.group(2))
-        second = _market_price_to_rupees(range_match.group(3), range_match.group(4))
+        first = _market_price_to_aed(range_match.group(1), range_match.group(2))
+        second = _market_price_to_aed(range_match.group(3), range_match.group(4))
         args["price_min"], args["price_max"] = sorted((first, second))
     else:
         shared_unit_range = re.search(
             r"(?:between\s+)?(\d+(?:\.\d+)?)\s*(?:to|[-–])\s*"
-            r"(\d+(?:\.\d+)?)\s*(cr|crore|crores|karod|karods|l|lac|lacs|lakh|lakhs|k|thousand|thousands|hazaar|hazar)\b",
+            r"(\d+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)\b",
             lower,
         )
         if shared_unit_range:
-            first = _market_price_to_rupees(shared_unit_range.group(1), shared_unit_range.group(3))
-            second = _market_price_to_rupees(shared_unit_range.group(2), shared_unit_range.group(3))
+            first = _market_price_to_aed(shared_unit_range.group(1), shared_unit_range.group(3))
+            second = _market_price_to_aed(shared_unit_range.group(2), shared_unit_range.group(3))
             args["price_min"], args["price_max"] = sorted((first, second))
         else:
             ceiling = re.search(
-                rf"(?:under|below|upto|up to|max(?:imum)?|budget\s*(?:of)?\s*)\s*(?:₹|rs\.?\s*)?{amount_pattern}",
+                rf"(?:under|below|upto|up to|max(?:imum)?|budget\s*(?:of)?\s*)\s*(?:aed|dhs\s*)?{amount_pattern}",
                 lower,
             )
             if ceiling:
-                args["price_max"] = _market_price_to_rupees(ceiling.group(1), ceiling.group(2))
+                args["price_max"] = _market_price_to_aed(ceiling.group(1), ceiling.group(2))
 
     return args
 
@@ -2356,17 +2353,15 @@ def _open_db():
     return None
 
 
-def _listing_price_in_rupees(row: dict) -> float | None:
+def _listing_price_in_aed(row: dict) -> float | None:
     """Normalize a stored listing price without depending on SQL CASE logic."""
     try:
         value = float(row.get("price"))
     except (TypeError, ValueError):
         return None
     unit = str(row.get("price_unit") or "").strip().lower()
-    if unit in {"lac", "lakh", "l"}:
-        return value * 1_00_000
-    if unit in {"cr", "crore"}:
-        return value * 1_00_00_000
+    if unit in {"m", "mn", "million", "millions"}:
+        return value * 1_000_000
     if unit == "k":
         return value * 1_000
     return value
@@ -2574,7 +2569,7 @@ def _rest_market_search(client, args: dict, tenant_id: str | None = None) -> str
                 continue
             if row.get("latest_raw_message_id") is not None and int(row["latest_raw_message_id"]) in hidden_raw_message_ids:
                 continue
-            normalized_price = _listing_price_in_rupees(row)
+            normalized_price = _listing_price_in_aed(row)
             if price_min is not None and (normalized_price is None or normalized_price < float(price_min)):
                 continue
             if price_max is not None and (normalized_price is None or normalized_price > float(price_max)):
@@ -3126,20 +3121,18 @@ def execute_tool(
                 params.append(f"%{micro_market}%")
 
             if price_max:
-                # Normalize price to raw rupees for comparison
-                # AI sends prices in raw rupees (e.g. 450000 = ₹4.5L)
-                # DB stores: abs=raw, Lac=value*100000, K=value*1000, Cr=value*10000000
+                # Normalize price to raw AED for comparison
+                # AI sends prices in raw dirhams (e.g. 1500000 = AED 1.5M)
+                # DB stores: abs=raw, M=value*1000000, K=value*1000
                 where_clauses.append("""(CASE 
-                    WHEN l.price_unit = 'Lac' OR l.price_unit = 'Lac' THEN l.price * 100000
-                    WHEN l.price_unit = 'Cr' THEN l.price * 10000000
+                    WHEN l.price_unit = 'M' OR l.price_unit = 'Mn' THEN l.price * 1000000
                     WHEN l.price_unit = 'K' THEN l.price * 1000
                     ELSE l.price END) <= ?""")
                 params.append(float(price_max))
 
             if price_min:
                 where_clauses.append("""(CASE 
-                    WHEN l.price_unit = 'Lac' OR l.price_unit = 'Lac' THEN l.price * 100000
-                    WHEN l.price_unit = 'Cr' THEN l.price * 10000000
+                    WHEN l.price_unit = 'M' OR l.price_unit = 'Mn' THEN l.price * 1000000
                     WHEN l.price_unit = 'K' THEN l.price * 1000
                     ELSE l.price END) >= ?""")
                 params.append(float(price_min))

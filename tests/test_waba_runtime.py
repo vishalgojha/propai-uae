@@ -8,7 +8,7 @@ from routers import whatsapp_sync as ws_mod
 
 def test_shared_waba_is_available_to_super_admin(monkeypatch):
     values = {
-        "whatsapp_business_number": ws_mod.PROPAI_SHARED_WABA_NUMBER,
+        "whatsapp_business_number": "971501234567",
         "phone_number_id": "phone-number-id",
         "access_token": "token",
         "verify_token": "verify",

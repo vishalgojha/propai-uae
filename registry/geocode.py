@@ -38,8 +38,8 @@ def geocode_location(loc_name: str) -> dict | None:
     if not loc_name or loc_name in ("—", "-", ""):
         return None
     
-    # Pad with Mumbai context
-    query = f"{loc_name}, Mumbai, Maharashtra, India"
+    # Pad with Dubai context
+    query = f"{loc_name}, Dubai, United Arab Emirates"
     url = f"https://nominatim.openstreetmap.org/search?q={quote(query)}&format=json&limit=1&addressdetails=1"
     
     headers = {
@@ -55,8 +55,8 @@ def geocode_location(loc_name: str) -> dict | None:
         return None
     
     if not data:
-        # Try without Mumbai
-        url = f"https://nominatim.openstreetmap.org/search?q={quote(query)}&format=json&limit=1&addressdetails=1"
+        # Try without Dubai
+        url = f"https://nominatim.openstreetmap.org/search?q={quote(loc_name)}&format=json&limit=1&addressdetails=1"
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=10) as resp:

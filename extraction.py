@@ -130,10 +130,10 @@ def _clean_broker_name(value: object) -> str | None:
 
 
 _REQUIREMENT_BUDGET_RANGE_RE = re.compile(
-    r"\bbudget\s*[:\-]?\s*(?:₹|rs\.?\s*)?([\d,.]+)\s*"
-    r"(k|thousand|l|lac|lakh|lakhs|cr|crore|crores)?\s*"
-    r"(?:-|\u2013|to|se)\s*(?:₹|rs\.?\s*)?([\d,.]+)\s*"
-    r"(k|thousand|l|lac|lakh|lakhs|cr|crore|crores)?\b",
+    r"\bbudget\s*[:\-]?\s*(?:aed\s*|dhs\s*)?([\d,.]+)\s*"
+    r"(k|thousand|m|mn|million)?\s*"
+    r"(?:-|\u2013|to|se)\s*(?:aed\s*|dhs\s*)?([\d,.]+)\s*"
+    r"(k|thousand|m|mn|million)?\b",
     re.IGNORECASE,
 )
 _RENTAL_REQUIREMENT_CUE_RE = re.compile(
@@ -142,14 +142,14 @@ _RENTAL_REQUIREMENT_CUE_RE = re.compile(
     re.IGNORECASE,
 )
 _REQUIREMENT_SINGLE_BUDGET_RE = re.compile(
-    r"\b(?:budget|rent|rental|rantal|rant)\s*[:\-]?\s*(?:₹|rs\.?\s*)?"
-    r"([\d,.]+)\s*(k|thousand|l|lac|lakh|lakhs|cr|crore|crores)\b",
+    r"\b(?:budget|rent|rental|rantal|rant)\s*[:\-]?\s*(?:aed\s*|dhs\s*)?"
+    r"([\d,.]+)\s*(k|thousand|m|mn|million)\b",
     re.IGNORECASE,
 )
 _REQUIREMENT_UP_TO_BUDGET_RE = re.compile(
     r"\bbudget\s*[:\-]?\s*(?:up\s*to|upto|maximum|max)\s*"
-    r"(?:₹|rs\.?\s*)?([\d,.]+)\s*"
-    r"(k|thousand|l|lac|lakh|lakhs|cr|crore|crores)\b",
+    r"(?:aed\s*|dhs\s*)?([\d,.]+)\s*"
+    r"(k|thousand|m|mn|million)\b",
     re.IGNORECASE,
 )
 _UNSUPPORTED_PG_RE = re.compile(
@@ -159,7 +159,7 @@ _UNSUPPORTED_PG_RE = re.compile(
 
 
 def _clean_budget_bound(value):
-    """Store money bounds as stable rupee integers, not float artifacts."""
+    """Store money bounds as stable AED integers, not float artifacts."""
     if value is None:
         return None
     try:
@@ -175,7 +175,7 @@ def _clean_budget_bound(value):
 def _source_ground_requirement_item(item: dict, source_text: str) -> dict:
     """Correct requirement route/budget from explicit source evidence.
 
-    Models sometimes expand ``38k`` as 3.8 lakh and default a bare
+    Models sometimes misread ``85K`` as AED 8.5M and default a bare
     ``Requirement`` to purchase demand.  An explicit K-denominated budget in
     the normal monthly-rent range plus a tenancy cue is authoritative.  This
     runs after AI extraction and before typed-table routing.
@@ -195,8 +195,7 @@ def _source_ground_requirement_item(item: dict, source_text: str) -> dict:
         second_unit = (match.group(4) or match.group(2) or "").lower()
         multipliers = {
             "k": 1_000, "thousand": 1_000,
-            "l": 100_000, "lac": 100_000, "lakh": 100_000, "lakhs": 100_000,
-            "cr": 10_000_000, "crore": 10_000_000, "crores": 10_000_000,
+            "m": 1_000_000, "mn": 1_000_000, "million": 1_000_000,
         }
         try:
             low = float(match.group(1).replace(",", "")) * multipliers.get(first_unit, 1)
@@ -219,13 +218,12 @@ def _source_ground_requirement_item(item: dict, source_text: str) -> dict:
 
     # A single capped budget is an upper bound, not a range. This source-level
     # correction is authoritative because providers have historically turned
-    # "Up to ₹6 Cr" into the nonsensical ₹60L–₹600Cr range.
+    # "Up to AED 2M" into a nonsense 200K-20M spread.
     up_to = _REQUIREMENT_UP_TO_BUDGET_RE.search(source_text or "")
     if not match and up_to:
         multipliers = {
             "k": 1_000, "thousand": 1_000,
-            "l": 100_000, "lac": 100_000, "lakh": 100_000, "lakhs": 100_000,
-            "cr": 10_000_000, "crore": 10_000_000, "crores": 10_000_000,
+            "m": 1_000_000, "mn": 1_000_000, "million": 1_000_000,
         }
         unit = up_to.group(2).lower()
         try:
@@ -241,8 +239,7 @@ def _source_ground_requirement_item(item: dict, source_text: str) -> dict:
         unit = single.group(2).lower()
         multipliers = {
             "k": 1_000, "thousand": 1_000,
-            "l": 100_000, "lac": 100_000, "lakh": 100_000, "lakhs": 100_000,
-            "cr": 10_000_000, "crore": 10_000_000, "crores": 10_000_000,
+            "m": 1_000_000, "mn": 1_000_000, "million": 1_000_000,
         }
         try:
             amount = float(single.group(1).replace(",", "")) * multipliers[unit]
@@ -381,7 +378,7 @@ def _explicit_source_inventory_type(text: str) -> str | None:
     ):
         return "sale"
     if (
-        re.search(r"\b(?:cr|crore|crores)\b", value, re.IGNORECASE)
+        re.search(r"\b\d+(?:[.,]\d+)?\s*(?:mn|millions?|m)\b", value, re.IGNORECASE)
         and not re.search(
             r"\b(?:rent|rental|lease|leased|for\s+rent|on\s+rent|for\s+lease|on\s+lease)\b",
             value,
@@ -540,7 +537,7 @@ def _infer_building_name_from_source(text: str, locality: str | None = None) -> 
             and re.search(r"[A-Za-z]", candidate)
             and candidate.casefold() not in {"on request", "price on request", "request", "unknown", "n/a", "na"}
             and not re.search(r"(?i)\b(?:rent|sale|lease|available|carpet|area|floor|parking|possession|contact|details)\b", candidate)
-            and not re.search(r"(?:₹|\b\d{5,}\b|\b(?:sq\.?\s*ft|lakh|lakhs?|crore|cr|per\s+month)\b)", candidate)
+            and not re.search(r"(?:aed|dhs|\b\d{5,}\b|\b(?:sq\.?\s*ft|mn?|millions?|per\s+(?:month|year))\b)", candidate)
         ):
             return candidate
     # Numbered inventory headings often carry both identities in one line:
@@ -579,7 +576,7 @@ def _infer_building_name_from_source(text: str, locality: str | None = None) -> 
                 continue
             if re.search(r"\b(?:prime location|location|rent|sale|lease|available|carpet|area|status|floor|parking|possession|inspection|photos?|contact|details|site visit|brokerage)\b", candidate, re.IGNORECASE):
                 continue
-            if re.search(r"(?:₹|\b\d{5,}\b|\b(?:sq\.?\s*ft|lakh|lakhs?|crore|cr|per\s+month)\b)", candidate, re.IGNORECASE):
+            if re.search(r"(?:aed|dhs|\b\d{5,}\b|\b(?:sq\.?\s*ft|mn?|millions?|per\s+(?:month|year))\b)", candidate, re.IGNORECASE):
                 continue
             if re.search(r"[A-Za-z]", candidate):
                 return candidate.strip(" .,")
@@ -594,7 +591,7 @@ def _infer_building_name_from_source(text: str, locality: str | None = None) -> 
                 and len(candidate) <= 70
                 and re.search(r"[A-Za-z]", candidate)
                 and not re.search(
-                    r"(?i)\b(?:area|floor|rent|sale|lease|parking|contact|details|brokerage|possession|photos?|available|road|location)\b|₹|\b\d{4,}\b",
+                    r"(?i)\b(?:area|floor|rent|sale|lease|parking|contact|details|brokerage|possession|photos?|available|road|location)\b|(?:aed|dhs)|\b\d{4,}\b",
                     candidate,
                 )
             ):
@@ -610,8 +607,8 @@ _CORE_AREA_RE = re.compile(
     re.IGNORECASE,
 )
 _CORE_PRICE_RE = re.compile(
-    r"(?:₹|rs\.?|inr)?\s*(\d[\d,]*(?:\.\d+)?)\s*"
-    r"(cr(?:ore|ores)?|lac(?:s)?|lakh(?:s)?|l|k|thousand(?:s)?)\b",
+    r"(?:aed|dhs|dirhams?)?\s*(\d[\d,]*(?:\.\d+)?)\s*"
+    r"(m|mn|millions?|k|thousands?)\b",
     re.IGNORECASE,
 )
 _MULTI_UNIT_BHK_RE = re.compile(
@@ -622,7 +619,7 @@ _MULTI_UNIT_BHK_RE = re.compile(
 _PRICE_PER_SQFT_RE = re.compile(
     r"(?:rate|price)\s*(?:per|/)\s*(?:sq\.?\s*ft|sqft|sft|square\s*feet)\.?"
     r"(?:\s*on\s+(?:carpet|built[- ]?up|chargeable)\s*)?[:=\-]?\s*"
-    r"(?:₹|rs\.?|inr)?\s*(?P<rate>\d[\d,]*(?:\.\d+)?)",
+    r"(?:aed|dhs|dirhams?)?\s*(?P<rate>\d[\d,]*(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
@@ -653,17 +650,17 @@ def _source_has_price_evidence(source_text: str) -> bool:
     return bool(
         _PRICE_PER_SQFT_RE.search(source)
         or re.search(
-            r"(?:₹|rs\.?|inr)?\s*\d[\d,]*(?:\.\d+)?\s*(?:psf|per\s+sq\.?\s*ft|per\s+sqft)\b",
+            r"(?:aed|dhs|dirhams?)?\s*\d[\d,]*(?:\.\d+)?\s*(?:psf|per\s+sq\.?\s*ft|per\s+sqft)\b",
             source,
             re.IGNORECASE,
         )
         or _CORE_PRICE_RE.search(source)
-        or re.search(r"(?:₹|rs\.?|inr)\s*\d[\d,]*(?:\.\d+)?", source, re.IGNORECASE)
+        or re.search(r"(?:aed|dhs)\s*\d[\d,]*(?:\.\d+)?", source, re.IGNORECASE)
         or re.search(r"\d[\d,]*(?:\.\d+)?\s*(?:per\s*month|monthly|/\s*month)\b", source, re.IGNORECASE)
         or re.search(
             r"\b(?:rent|rental|monthly\s+rent|asking|price)\b\s*[:=\-]?\s*"
-            r"(?:₹|rs\.?|inr)?\s*\d[\d,]*(?:\.\d+)?"
-            r"(?:\s*(?:cr(?:ore|ores)?|lac(?:s)?|lakh(?:s)?|l|k|thousand(?:s)?))?\b",
+            r"(?:aed|dhs|dirhams?)?\s*\d[\d,]*(?:\.\d+)?"
+            r"(?:\s*(?:m|mn|millions?|k|thousands?))?\b",
             source,
             re.IGNORECASE,
         )
@@ -717,8 +714,8 @@ def _apply_source_evidence_gates(ai: dict, source_text: str) -> dict:
         # from a broker broadcast. Keep the row for audit/review, but remove
         # the ambiguous price so it cannot appear as a false active listing.
         absolute_quotes = re.findall(
-            r"\b(?:asking|price|quote)\b\s*[:=\-]?\s*(?:₹|rs\.?|inr)?\s*"
-            r"\d[\d,]*(?:\.\d+)?\s*(?:cr(?:ore|ores)?|lac(?:s)?|lakh(?:s)?|l|k|thousand(?:s)?)?\b",
+            r"\b(?:asking|price|quote)\b\s*[:=\-]?\s*(?:aed|dhs|dirhams?)?\s*"
+            r"\d[\d,]*(?:\.\d+)?\s*(?:m|mn|millions?|k|thousands?)?\b",
             source,
             re.IGNORECASE,
         )
@@ -838,8 +835,8 @@ def _rescue_core_fields(parsed: dict, source_text: str) -> dict:
             raw_price = match.group(0)
             parsed["price"] = _parse_raw_price_to_abs(raw_price)
             parsed["price_unit"] = "abs" if parsed.get("price") is not None else parsed.get("price_unit")
-        elif re.search(r"(?:₹|rs\.?|inr)\s*\d[\d,]*(?:\.\d+)?", source, re.IGNORECASE):
-            plain = re.search(r"(?:₹|rs\.?|inr)\s*(\d[\d,]*(?:\.\d+)?)", source, re.IGNORECASE)
+        elif re.search(r"(?:aed|dhs)\s*\d[\d,]*(?:\.\d+)?", source, re.IGNORECASE):
+            plain = re.search(r"(?:aed|dhs)\s*(\d[\d,]*(?:\.\d+)?)", source, re.IGNORECASE)
             if plain:
                 parsed["price"] = _safe_float(plain.group(1).replace(",", ""))
                 parsed["price_unit"] = "abs" if parsed.get("price") is not None else parsed.get("price_unit")
@@ -1343,13 +1340,12 @@ def _safe_int(value) -> int | None:
 import re as _re
 
 _UNIT_TO_ABS = {
-    "cr": 10_000_000, "crore": 10_000_000,
-    "lac": 100_000, "lakh": 100_000, "l": 100_000,
+    "m": 1_000_000, "mn": 1_000_000, "million": 1_000_000,
     "k": 1_000, "thousand": 1_000,
 }
 
 def _parse_raw_price_to_abs(raw_price_text: str) -> float | None:
-    """Best-effort parse of raw_price_text into absolute rupees.
+    """Best-effort parse of raw_price_text into absolute AED.
 
     Returns None if the text is unparseable.  Used to cross-check the AI
     extraction amount which sometimes returns 10x/100x the correct value.
@@ -1360,13 +1356,13 @@ def _parse_raw_price_to_abs(raw_price_text: str) -> float | None:
         return canonical_price_rupees(amount, unit)
     if not raw_price_text:
         return None
-    # Brokers commonly write prices as `1.15.Cr`, `75.Lakh`, or
-    # `₹2.80 to 3.35 Crore`.  The old expression stopped at the decimal
-    # punctuation and therefore could validate the AI value against `1.15`
-    # rupees instead of 1.15 crore.
+    # Brokers commonly write prices as `1.5.M`, `95.K`, or
+    # `AED 2.80 to 3.35 Million`.  The old expression stopped at the decimal
+    # punctuation and therefore could validate the AI value against `1.5`
+    # dirhams instead of 1.5 million.
     m = _re.search(
         r'([\d,]+(?:(?:\.\d+)|(?::\d+))?)\s*[.\-/]*\s*'
-        r'(cr|crores?|crore|lac?s?|lakhs?|l|k|thousands?|thousand)\b',
+        r'(m|mn|millions?|k|thousands?)\b',
         raw_price_text.lower(),
     )
     if not m:
@@ -1384,7 +1380,7 @@ def _parse_raw_price_native(raw_price_text: str) -> tuple[float, str] | None:
     """Return the first explicitly stated broker price in its native unit.
 
     This is deliberately source-grounded.  The model is asked for absolute
-    rupees, but persisted inbox values use native units (Cr/Lac/K).  If the
+    dirhams, but persisted inbox values use native units (M/K).  If the
     source contains an explicit unit, it is safer to use that source value
     than to trust a model conversion which can be off by 10x/1000x.
     """
@@ -1392,7 +1388,7 @@ def _parse_raw_price_native(raw_price_text: str) -> tuple[float, str] | None:
         return None
     m = _re.search(
         r'([\d,]+(?:\.\d+)?)\s*[.:/\-]*\s*'
-        r'(cr|crores?|crore|lac?s?|lakhs?|l|k|thousands?|thousand)\b',
+        r'(m|mn|millions?|k|thousands?)\b',
         raw_price_text.lower(),
     )
     if not m:
@@ -1402,10 +1398,8 @@ def _parse_raw_price_native(raw_price_text: str) -> tuple[float, str] | None:
     except ValueError:
         return None
     unit = m.group(2).rstrip("s")
-    if unit in {"crore", "cr"}:
-        return amount, "cr"
-    if unit in {"lac", "lakh", "l"}:
-        return amount, "lac"
+    if unit in {"m", "mn", "million"}:
+        return amount, "M"
     return amount, "K"
 
 
@@ -1413,7 +1407,7 @@ def _price_from_ai_and_raw(
     price_info: dict,
     source_text: str | None = None,
 ) -> tuple[float | None, str | None]:
-    """Return an absolute rupee amount, using the source phrase as a guardrail.
+    """Return an absolute AED amount, using the source phrase as a guardrail.
 
     Models occasionally return ``8.5`` for ``8.5 Cr`` or shift a decimal.
     When the source contains an explicit money unit, that literal source value
@@ -1430,16 +1424,16 @@ def _price_from_ai_and_raw(
     raw = str(price_info.get("raw_price_text") or "").strip()
     # Some providers return a normalized amount/unit but omit the required
     # provenance phrase. The exact listing slice remains authoritative: an
-    # explicit Indian money unit there prevents decimal shifts such as
-    # `₹1.85 Cr` becoming `₹18.5 Lakh`.
+    # explicit UAE money unit there prevents decimal shifts such as
+    # `AED 1.85M` becoming `AED 185K`.
     if not raw and source_text:
         raw = str(source_text)
     unit = str(price_info.get("unit") or "").strip().lower()
-    # A model can mislabel a normal rent quote such as ``₹2.00 Lakhs`` as
-    # per-square-foot.  An explicit lakh/crore/thousand quote is authoritative
+    # A model can mislabel a normal rent quote such as ``AED 200K`` as
+    # per-square-foot.  An explicit million/thousand quote is authoritative
     # unless the source itself contains a PSF marker.
     has_explicit_native_unit = bool(re.search(
-        r"\d+(?:[.,]\d+)?\s*(?:cr|crores?|lac?s?|lakhs?|l|k|thousands?)\b",
+        r"\d+(?:[.,]\d+)?\s*(?:m|mn|millions?|k|thousands?)\b",
         raw.lower(),
     ))
     has_psf_marker = bool(re.search(r"\b(?:psf|per\s+sq\.?\s*ft)\b", raw.lower()))
@@ -1461,8 +1455,8 @@ def _source_rent_price_text(source_text: str | None) -> str | None:
     """Return the explicit rent quote, without picking a deposit or sale quote."""
     match = re.search(
         r"\b(?:rent|rental|monthly\s+rent)\s*[:=\-]?\s*"
-        r"((?:₹|rs\.?\s*)?\d[\d,.]*\s*"
-        r"(?:cr(?:ore|ores)?|lac(?:s)?|lakh(?:s)?|l|k|thousand(?:s)?)?"
+        r"((?:aed|dhs\s*)?\d[\d,.]*\s*"
+        r"(?:m|mn|millions?|k|thousands?)?"
         r"(?:\s*(?:per\s*month|/\s*month|p\.?\s*m\.?)\b)?)",
         str(source_text or ""),
         re.IGNORECASE,
@@ -1480,8 +1474,8 @@ def _parse_deposit(raw_text: str, monthly_rent: float | None = None) -> dict:
     months = None
     needs_review = False
     explicit = re.search(
-        r"\bdeposit\b\s*[:\-]?\s*(?:rs\.?|₹)?\s*"
-        r"([\d,.]+)(?:\s*(lac|lakh|lacs|k|cr|crore|thousand|months?|mo))?",
+        r"\bdeposit\b\s*[:\-]?\s*(?:aed|dhs)?\s*"
+        r"([\d,.]+)(?:\s*(k|m|mn|million|thousand|months?|mo))?",
         lower,
     )
     if explicit:
@@ -1497,8 +1491,8 @@ def _parse_deposit(raw_text: str, monthly_rent: float | None = None) -> dict:
                     "raw_price_text": f"{value} {unit}".strip(),
                 })[0]
     combined = re.search(
-        r"([\d,.]+)\s*(lac|lakh|lacs|k|cr|crore|thousand)?\s*[+/&/]\s*"
-        r"([\d,.]+)\s*(lac|lakh|lacs|k|cr|crore|thousand|months?|mo)?",
+        r"([\d,.]+)\s*(k|m|mn|million|thousand)?\s*[+/&/]\s*"
+        r"([\d,.]+)\s*(k|m|mn|million|thousand|months?|mo)?",
         lower,
     )
     if combined:
@@ -1611,13 +1605,13 @@ def _ai_extraction_to_parsed(ai_extraction: dict, raw_text: str, sender_name: st
         location_raw = None
 
     source_for_inference = slice_text or raw_text
-    inferred_building, inferred_locality, _ = _explicit_bold_building_context(source_for_inference)
+    inferred_building, inferred_locality, explicit_boundary_seen = _explicit_bold_building_context(source_for_inference)
     inferred_building = inferred_building or _infer_building_name_from_source(source_for_inference, micro_market)
     # Keep explicit source labels authoritative when the model returns null.
     # This covers broker shorthand such as ``Bildg : Vardhaman Estate`` and
     # commercial blocks such as ``Location: Lower Parel West``.
     source_lines = [re.sub(r"[*_`~]", "", line).strip(" -:•") for line in str(source_for_inference).splitlines()]
-    if source_lines:
+    if source_lines and not explicit_boundary_seen:
         heading = re.sub(r"(?i)^\s*(?:\(\s*\d+\s*\)|\d+[.)])\s*", "", source_lines[0]).strip()
         heading_parts = re.split(r"\s+[–—-]\s+", heading, maxsplit=1)
         if len(heading_parts) == 2 and not location_raw:
@@ -2260,7 +2254,7 @@ def _normalized_bhk(value) -> float | None:
 
 
 def _deterministic_price_rupees(item: dict) -> float | None:
-    """Convert a deterministic boundary price to absolute rupees."""
+    """Convert a deterministic boundary price to absolute AED."""
     return canonical_price_rupees(item.get("price"), item.get("price_unit"), item.get("price_raw_text"))
 
 
@@ -2345,6 +2339,12 @@ def check_share_eligibility(parsed: dict, org_privacy: dict, conv_type: str = "u
 
 
 _INDIAN_MOBILE_IN_TEXT = re.compile(r'(?<!\d)(?:\+?91[-.\s]?)?[6-9]\d{9}(?!\d)')
+_UAE_MOBILE_IN_TEXT = re.compile(
+    r"(?<!\d)(?:\+?971[-\s]?[2-7]\d{7,8}|0?5\d[-\s]?\d{3}[-\s]?\d{4})(?!\d)"
+)
+_SIGNATURE_PHONE_IN_TEXT = re.compile(
+    rf"{_INDIAN_MOBILE_IN_TEXT.pattern}|{_UAE_MOBILE_IN_TEXT.pattern}"
+)
 
 _REDACTED_MARKER = "[Contact redacted — see agent]"
 _INDIAN_MOBILE_LOOSE = re.compile(r'(?<!\d)(?:\+?91[-.\s]?)?[6-9]\d{4}[-\s.]?\d{5}(?!\d)')
@@ -2471,7 +2471,7 @@ def _slice_blocks_for_ai_items(msg_text: str, ai_items: list) -> list[str]:
         checks = (
             r"\b\d+(?:\.\d+)?\s*(?:bhk|rk)\b",
             r"\b\d[\d,]*(?:\.\d+)?\s*(?:sq\.?\s*ft|sqft|sft|carpet|bup)\b",
-            r"(?:₹|\brs\.?\s*)?\d+(?:[,.]\d+)?\s*(?:cr|crore|l|lac|lakh|k)\b",
+            r"(?:aed|\bdhs\.?\s*)?\d+(?:[,.]\d+)?\s*(?:m|mn|million|k)\b",
         )
         return sum(bool(re.search(pattern, value, re.IGNORECASE)) for pattern in checks)
 
@@ -2531,7 +2531,7 @@ def _is_actionable_property_slice(value: str) -> bool:
     if re.search(
         r"\b\d+(?:\.\d+)?\s*(?:bhk|rk)\b|"
         r"\b\d[\d,]*(?:\.\d+)?\s*(?:sq\.?\s*ft|sqft|sft|carpet|bup)\b|"
-        r"(?:₹|\brs\.?\s*)?\d+(?:[,.]\d+)?\s*(?:cr|crore|l|lac|lakh|k)\b",
+        r"(?:aed|\bdhs\.?\s*)?\d+(?:[,.]\d+)?\s*(?:m|mn|million|k)\b",
         text,
         re.IGNORECASE,
     ):
@@ -2621,7 +2621,7 @@ def _extract_broker_signature_names(text: str) -> set[str]:
     property_anchor_re = re.compile(
         r"\b\d+(?:\.\d+)?\s*(?:bhk|rk)\b|"
         r"\b\d[\d,]*(?:\.\d+)?\s*(?:sq\.?\s*ft|sqft|sft|carpet|bup)\b|"
-        r"(?:₹|\brs\.?\s*)?\d+(?:[,.]\d+)?\s*(?:cr|crore|l|lac|lakh|k)\b",
+        r"(?:aed|\bdhs\.?\s*)?\d+(?:[,.]\d+)?\s*(?:m|mn|million|k)\b",
         re.IGNORECASE,
     )
     last_property_index = max(
@@ -2630,7 +2630,7 @@ def _extract_broker_signature_names(text: str) -> set[str]:
     )
     names: set[str] = set()
     for index, line in enumerate(footer_lines):
-        match = _INDIAN_MOBILE_IN_TEXT.search(line)
+        match = _SIGNATURE_PHONE_IN_TEXT.search(line)
         if not match:
             continue
         preceding = line[:match.start()].strip().rstrip(":,-").strip()

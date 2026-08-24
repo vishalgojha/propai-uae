@@ -42,31 +42,25 @@ def test_validation_preserves_indian_price_unit(unit):
 def test_write_updates_only_flagged_fields():
     calls = []
 
-    class Query:
-        def update(self, payload):
-            calls.append(payload)
-            return self
+    class Storage:
+        def update_parsed_fields(self, row_id, update):
+            calls.append((row_id, dict(update)))
+            return {"id": row_id}
 
-        def eq(self, column, value):
-            calls.append((column, value))
-            return self
-
-        def execute(self):
-            return SimpleNamespace(data=[{"id": 7}])
-
-    storage = SimpleNamespace(client=SimpleNamespace(table=lambda _name: Query()))
+    storage = Storage()
     draft = {field: None for field in layer.CORRECTABLE_FIELDS}
     payload = valid_payload(draft, ["building_name"])
     payload["building_name"] = "Sea View"
-    payload["location_raw"] = "Bandra West"
+    payload["location_raw"] = "Dubai Marina"
 
     layer._write_correction(storage, 7, "hash", payload)
 
-    written = calls[0]
+    row_id, written = calls[0]
+    assert row_id == 7
     assert written["building_name"] == "Sea View"
     assert "location_raw" not in written
     assert written["corrected_fields"] == ["building_name"]
-    assert calls[1] == ("id", 7)
+    assert written["correction_hash"] == "hash"
 
 
 def test_scheduled_slot_is_two_hour_bucket():

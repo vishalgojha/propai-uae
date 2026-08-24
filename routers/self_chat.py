@@ -169,7 +169,7 @@ OUTPUT RULES — non-negotiable:
 - For real-estate queries, format like:
   • <Property>: <price>, <bhk>, <area> sqft — <micro_market>
   • Broker: <name> / <phone>
-- Numbers above 999: write as 1.2L (lac), 3.5Cr (crore), 25K. Do NOT write ₹1,20,000.
+- Numbers above 999: write as AED 1.5M (million) or 85K (thousand). Do NOT write AED 1,500,000.
 - Do not ask the user to open the dashboard. If a UI is genuinely required, say so in one bullet.{overview_line}"""
 
 

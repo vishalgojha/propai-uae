@@ -50,7 +50,7 @@ class Storage:
     def is_super_admin(user_id):
         return user_id == "super-user"
 
-    def get_extraction_progress(self, rate_window_hours=24):
+    def get_extraction_progress(self, rate_window_hours=24, tenant_id=None):
         return {**self._progress, "rate_window_hours": rate_window_hours}
 
     def client(self):

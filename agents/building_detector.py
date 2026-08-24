@@ -25,41 +25,39 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from lab.storage.base import Storage
 
-BUILDING_SYSTEM_PROMPT = """You are a building name extractor for Mumbai real estate WhatsApp groups.
+BUILDING_SYSTEM_PROMPT = """You are a building name extractor for Dubai real estate WhatsApp groups.
 
 Given a raw WhatsApp message, extract the building/complex name if one is clearly mentioned.
 
 Rules:
-- Return the exact building name as written (e.g. "Lodha Crown", "Rustomjee Eternity", "Chandak Unicorn")
+- Return the exact building name as written (e.g. "Marina Gate", "Burj Royale", "Belgravia Heights")
 - If multiple buildings, return the primary one being advertised
 - If no building is mentioned, return null
 - If only a landmark or area (not a specific building), return null
 - Be conservative — only extract when you are confident
 
-CRITICAL: Some tower names include a locality abbreviation (e.g. "Ten BKC", "One BKC",
-"BKC-X") — these are SPECIFIC TOWERS in the BKC area, not area references.  Do NOT
-null them out just because "BKC" looks like a locality name.  Similarly, "The Capital"
-is a tower name despite containing a generic word.
+CRITICAL: Some tower names include a locality word (e.g. "Marina Gate", "Marina Quays",
+"Palm Tower") — these are SPECIFIC TOWERS in Dubai Marina / Palm Jumeirah, not area
+references.  Do NOT null them out just because they contain "Marina" or "Palm".
+Similarly, "The Pulse" is a tower name despite containing a generic word.
 
-Examples of locality-name-collision (tower name contains area abbreviation):
-  Input: "2 BHK for lease, Ten BKC"          → "Ten BKC" (specific tower in BKC)
-  Input: "3 BHK in One BKC"                   → "One BKC" (specific tower)
-  Input: "Office space at BKC-X"              → "BKC-X" (specific tower)
-  Input: "2 BHK office in BKC"                → null (BKC alone is just the locality)
-  Input: "1 BHK in Kanakia Paris BKC"         → "Kanakia Paris" (tower name)
-  Input: "10 BKC 3BHK 2300 sqft"              → "10 BKC" (numeral variant of Ten BKC)
-  Input: "Rentals in The Capital BKC"         → "The Capital" (tower name)
+Examples of locality-name-collision (tower name contains area word):
+  Input: "2 BR for rent, Marina Gate"        → "Marina Gate" (specific tower in Dubai Marina)
+  Input: "3 BR in Marina Quays"              → "Marina Quays" (specific tower)
+  Input: "Office space at Bay Square"        → "Bay Square" (specific complex in Business Bay)
+  Input: "2 BR apartment in Marina"          → null ("marina" alone is just the locality)
+  Input: "1 BR in Emaar Marina Shores"       → "Emaar Marina Shores" (tower name)
+  Input: "Studio in The Pulse Beachfront"    → "The Pulse" (tower name)
+  Input: "Rentals in Palm Tower Palm Jumeirah" → "Palm Tower" (specific tower)
 
 Respond in JSON: {"building_name": string | null, "confidence": 0.0-1.0, "reasoning": "brief explanation"}"""
 
-KNOWN_BKC_TOWERS = {
-    "Ten BKC", "One BKC", "10 BKC",
-    "BKC-X", "BKC X",
-    "Kanakia Paris", "The Capital", "Platina", "Parinee",
-    "Trade Centre", "Naman Centre",
-    "Bharat Diamond Bourse", "Cressenzo", "Ceejay House",
-    "Jio World Centre", "Maker Maxity",
-    "Sigma Corp", "ICICI Centre", "One International Center",
+KNOWN_MARINA_TOWERS = {
+    "Marina Gate", "Marina Gate 1", "Marina Gate 2", "Marina Gate 3",
+    "Marina Quays", "Marina Pinnacle", "Marina Shores", "Marina Sail",
+    "Princess Tower", "Cayan Tower", "Infinity Tower", "Damac Heights",
+    "Address Dubai Marina", "Grosvenor House", "Vida Residence",
+    "Elite Residence", "Ocean Heights", "Bay Central",
 }
 
 
@@ -249,9 +247,9 @@ def _check_group_context(storage: "Storage", parsed_id: int,
 def _call_llm(raw_message: str, location_raw: str, micro_market: str,
               storage=None, parsed_id: int = 0) -> dict | None:
     hint = ""
-    if "bkc" in micro_market.lower() or "bkc" in location_raw.lower():
-        towers = ", ".join(sorted(KNOWN_BKC_TOWERS))
-        hint = f"\nKnown BKC towers (extract one of these if matched): {towers}"
+    if "marina" in micro_market.lower() or "marina" in location_raw.lower():
+        towers = ", ".join(sorted(KNOWN_MARINA_TOWERS))
+        hint = f"\nKnown Dubai Marina towers (extract one of these if matched): {towers}"
     truncated = raw_message[:800]
     user_text = f"Message: {truncated}\nLocation: {location_raw}\nMarket: {micro_market}{hint}"
 
@@ -380,24 +378,27 @@ def _extract_json(text: str) -> dict | None:
     return None
 
 
-_NARRATIVE_SKIP = {"bhk", "sqft", "rent", "floor", "carpet", "furnished", "lakh", "cr", "price",
-                    "contact", "call", "whatsapp", "inventory", "listing", "unit", "tower",
-                    "available", "amenities", "view", "location", "area", "wing", "phase",
-                    "residences", "flats", "apartment", "road", "west", "east", "north", "south",
-                    "the", "a", "an", "for", "in", "at", "on", "to", "is", "are", "was",
-                    "known", "towers", "extract", "one", "these", "matched", "includes",
-                    "include", "following", "such", "like", "list", "listing", "entries"}
+_NARRATIVE_SKIP = {"bhk", "br", "sqft", "rent", "floor", "carpet", "furnished", "aed",
+                   "dhs", "dirham", "cheque", "chq", "yearly", "annual", "price",
+                   "contact", "call", "whatsapp", "inventory", "listing", "unit", "tower",
+                   "available", "amenities", "view", "location", "area", "wing", "phase",
+                   "residences", "flats", "apartment", "road", "west", "east", "north", "south",
+                   "the", "a", "an", "for", "in", "at", "on", "to", "is", "are", "was",
+                   "known", "towers", "extract", "one", "these", "matched", "includes",
+                   "include", "following", "such", "like", "list", "listing", "entries"}
 
 _BUILDING_KEYWORDS = frozenset({
-    "bkc", "tower", "house", "residency", "court", "heights", "corporation",
+    "tower", "house", "residency", "court", "heights", "corporation",
     "complex", "centre", "center", "square", "park", "villa", "palace",
-    "chambers", "enclave", "garden", "manor", "plaza", "nest", "kingdom",
-    "empire", "manor", "chambers", "building", "towers", "residence",
-    "heaven", "pride", "landmark", "vista", "crown", "royal", "regal",
-    "capital", "platinum", "diamond", "gold", "silver", "unicorn",
-    "eternity", "magnus", "serendipity", "kanakia", "parinee", "platina",
-    "cressenzo", "ceejay", "maxity", "maker", "sig", "jio", "bkc",
-    "naman", "bourse", "international", "trade", "centre",
+    "chambers", "enclave", "garden", "manor", "plaza", "nest",
+    "empire", "building", "towers", "residence",
+    "vista", "crown", "royale", "royal", "regal",
+    "capital", "platinum", "diamond", "gold", "silver",
+    "eternity", "emaar", "damac", "nakheel", "sobha", "meraas", "azizi",
+    "danube", "binghatti", "ellington", "omniyat", "select", "sobha",
+    "marina", "quays", "pinnacle", "princess", "cayan", "burj",
+    "gate", "pulse", "bay", "creek", "harbour", "jumeirah", "palm",
+    "international", "trade", "centre",
 })
 
 
@@ -416,7 +417,7 @@ def _is_building_like(name: str) -> bool:
     if name.startswith("*") or name.startswith("-") or name.startswith("#"):
         return False
     lower = name.lower()
-    if lower in ("building_name", "building_names", "null", "none", "bkc"):
+    if lower in ("building_name", "building_names", "null", "none", "marina"):
         return False
     # Reject description-like phrases
     if _REJECT_LIKE.search(lower):
@@ -429,7 +430,7 @@ def _is_building_like(name: str) -> bool:
     # Must contain at least one building keyword
     if any(kw in lower for kw in _BUILDING_KEYWORDS):
         return True
-    # Unterminated numeral prefix (e.g. "10 BKC")
+    # Unterminated numeral prefix (e.g. "10 Marina Gate")
     if re.fullmatch(r'\d+\s+[a-z].+', lower):
         return True
     return False
@@ -439,10 +440,10 @@ def _extract_narrative_building(text: str) -> str | None:
     """Extract the primary building name from narrative LLM output.
 
     Handles several formats the model returns:
-    - "Adani TEN BKC"  (quoted)
-    - Adani TEN BKC    (bare, no quotes)
-    - The building is "Adani TEN BKC"  (narrative with quotes)
-    - {"building_name": "Adani TEN BKC"} (JSON)
+    - "Aurora Marina Tower"  (quoted)
+    - Aurora Marina Tower    (bare, no quotes)
+    - The building is "Marina Gate"  (narrative with quotes)
+    - {"building_name": "Marina Gate"} (JSON)
     """
     text = text.strip()
 
@@ -520,8 +521,8 @@ def _apply_building(storage: "Storage", d: dict) -> str | None:
     return building_name
 
 
-def backfill_bkc(storage: "Storage") -> tuple[int, int]:
-    """Re-run building detection on all BKC rows where building_name is null.
+def backfill_marina(storage: "Storage") -> tuple[int, int]:
+    """Re-run building detection on all Dubai Marina rows where building_name is null.
 
     Returns (attempted, succeeded) counts.
     """
@@ -531,7 +532,7 @@ def backfill_bkc(storage: "Storage") -> tuple[int, int]:
                   r.group_name, r.sender, p.building_name
            FROM parsed_output_unified p
            JOIN raw_messages r ON r.id = p.raw_message_id
-           WHERE p.micro_market ILIKE 'BKC'
+           WHERE p.micro_market ILIKE 'Dubai Marina'
              AND (p.building_name IS NULL OR p.building_name = '')
            ORDER BY p.id"""
     ).fetchall()
@@ -555,7 +556,7 @@ def backfill_bkc(storage: "Storage") -> tuple[int, int]:
             if name:
                 succeeded += 1
         except Exception:
-            logger.exception("backfill_bkc: enrich_building failed for parsed_id=%s", d["id"])
+            logger.exception("backfill_marina: enrich_building failed for parsed_id=%s", d["id"])
 
-    logger.info("backfill_bkc: attempted=%d succeeded=%d", attempted, succeeded)
+    logger.info("backfill_marina: attempted=%d succeeded=%d", attempted, succeeded)
     return attempted, succeeded

@@ -289,7 +289,7 @@ def resolve(name: str, area: str = "", developer: str = "") -> tuple[int, float,
     parsed = parse(name_lower)
     lm_query = parsed["main_query"] if parsed["confidence"] >= 0.60 else name_lower
 
-    # Try exact/alias match on raw name first (e.g. "Bandra Station" is a landmark)
+    # Try exact/alias match on raw name first (e.g. "Emirates Towers" is a landmark)
     _load_landmarks()
     lm_names = CACHE.get("landmarks_by_name", {})
     lm_aliases = CACHE.get("landmarks_by_alias", {})

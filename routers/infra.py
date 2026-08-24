@@ -53,9 +53,41 @@ _logger = logging.getLogger(__name__)
 router = APIRouter(tags=["infra"])
 
 # ── WhatsApp text sanitizer ────────────────────────────────────────
+_UNICODE_DIGIT_MAP = str.maketrans({
+    "\u0660": "0", "\u0661": "1", "\u0662": "2", "\u0663": "3", "\u0664": "4",
+    "\u0665": "5", "\u0666": "6", "\u0667": "7", "\u0668": "8", "\u0669": "9",
+    "\u06F0": "0", "\u06F1": "1", "\u06F2": "2", "\u06F3": "3", "\u06F4": "4",
+    "\u06F5": "5", "\u06F6": "6", "\u06F7": "7", "\u06F8": "8", "\u06F9": "9",
+    "\u066B": ".", "\u066C": ",",
+    # Arabic diacritics (tashkeel) - delete
+    "\u064B": None, "\u064C": None, "\u064D": None, "\u064E": None,
+    "\u064F": None, "\u0650": None, "\u0651": None, "\u0652": None,
+    "\u0653": None, "\u0654": None, "\u0655": None, "\u0670": None,
+})
+
+_ARABIC_TOKEN_REWRITES = [
+    ("\u0645\u0644\u064a\u0648\u0646(?:\u064a\u0646)?", " mn "),   # million/millions
+    ("(?:\u0622\u0644\u0627\u0641|\u0627\u0644\u0627\u0641|\u0623\u0644\u0641|\u0627\u0644\u0641)", " k "),  # thousand(s)
+    ("\u062f\u0631\u0647\u0645", " AED "),                              # dirham
+    (r"\u062f\s*\.\s*\u0625", " AED "),                                 # d.E abbreviation
+]
+
+
+def normalize_multilingual(text: str) -> str:
+    """Normalise Arabic-script digits and currency/unit words so downstream
+    regexes can treat English, Arabic and Hinglish messages uniformly."""
+    if not isinstance(text, str) or not text:
+        return text or ""
+    text = text.translate(_UNICODE_DIGIT_MAP)
+    for pattern, replacement in _ARABIC_TOKEN_REWRITES:
+        text = re.sub(pattern, replacement, text)
+    return text
+
+
 def sanitize_whatsapp_text(text: str) -> str:
     if not isinstance(text, str):
         return str(text) if text is not None else ""
+    text = normalize_multilingual(text)
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
     text = re.sub(r"\*(.+?)\*", r"\1", text)
     text = re.sub(r"^[•\-]\s+", "", text, flags=re.M)
@@ -155,12 +187,12 @@ def _extract_broker_from_signature(text: str) -> tuple[str | None, str | None]:
         low = cleaned.lower()
         if any(term in low for term in bad_name_terms):
             return False
-        if re.search(r'\d{3,}|@|http|\.com|www|₹|\b(?:bhk|rk|cr|lac|lakh|sqft|sft)\b', low):
+        if re.search(r'\d{3,}|@|http|\.com|www|(?:aed|dhs)|\b(?:bhk|br|rk|m|mn|million|k|sqft|sft)\b', low):
             return False
         if cleaned.count(",") or cleaned.count(":"):
             return False
         return bool(_RE.match(r'^[A-Z][A-Za-z .&-]{2,}$', cleaned))
-    phone_candidate_re = re.compile(r'(?:\+?91[\s-]*)?[6-9](?:[\s-]*\d){9}')
+    phone_candidate_re = re.compile(r'(?:\+?971[\s-]*)?(?:50|52|54|55|56|58)(?:[\s-]*\d){7}')
     def normalize_phone_candidate(value: str | None) -> str | None:
         digits = re.sub(r'\D+', '', value or '')
         if len(digits) == 12 and digits.startswith('91'):
@@ -229,16 +261,37 @@ def _infer_micro_market(text: str | None) -> str | None:
         return None
     value = text.lower()
     mappings = [
-        (r'\bbkc\b|\bbandra\s+kurla\b', "Bandra BKC"),
-        (r'\blilavati\b|\bbandra\b', "Bandra West"),
-        (r'\bandheri\s+west\b|\bandheri\b', "Andheri West"),
-        (r'\bmalad\b', "Malad West"),
-        (r'\bgoregaon\b', "Goregaon"),
-        (r'\bsantacruz\b|\bsanta\s+cruz\b', "Santacruz"),
-        (r'\bkhar\b', "Khar"),
-        (r'\bjuhu\b', "Juhu"),
-        (r'\bpowai\b', "Powai"),
-        (r'\bworli\b', "Worli"),
+        (r'\bdubai\s+marina\b|\bmarina\b', "Dubai Marina"),
+        (r'\bjbr\b|\bjumeirah\s+beach\s+residence\b', "JBR"),
+        (r'\bdowntown\b|\bburj\s+khalifa\b', "Downtown Dubai"),
+        (r'\bbusiness\s+bay\b', "Business Bay"),
+        (r'\bdifc\b', "DIFC"),
+        (r'\bpalm\s+jumeirah\b', "Palm Jumeirah"),
+        (r'\bjvc\b|\bjumeirah\s+village\s+circle\b', "JVC"),
+        (r'\bjvt\b', "JVT"),
+        (r'\bjlt\b', "JLT"),
+        (r'\bdubai\s+hills\b', "Dubai Hills Estate"),
+        (r'\barabian\s+ranches\b', "Arabian Ranches"),
+        (r'\bsprings\b', "The Springs"),
+        (r'\bmeadows\b', "The Meadows"),
+        (r'\bgreens\b', "The Greens"),
+        (r'\bal\s+barsha\b|\bbarsha\b', "Al Barsha"),
+        (r'\bfurjan\b', "Al Furjan"),
+        (r'\bdeira\b', "Deira"),
+        (r'\bkarama\b', "Karama"),
+        (r'\bmirdif\b', "Mirdif"),
+        # Arabic-script aliases
+        (r"دبي\s*مارينا", "Dubai Marina"),
+        (r"الخليج\s*التجاري", "Business Bay"),
+        (r"وسط\s*المدينة|برج\s*خليفة", "Downtown Dubai"),
+        (r"نخلة\s*جميرا", "Palm Jumeirah"),
+        ("البرشاء", "Al Barsha"),
+        ("ديرة", "Deira"),
+        ("الكرامة", "Karama"),
+        ("مردف", "Mirdif"),
+        ("الفوران", "Al Furjan"),
+        (r"جميرا\s*بيتش\s*ريزيدنس", "JBR"),
+        (r"المركز\s*المالي\s*الدولي", "DIFC"),
     ]
     for pattern, market in mappings:
         if _RE.search(pattern, value):
@@ -262,17 +315,17 @@ def _infer_transaction_type(text: str, intent: str | None = None) -> str | None:
         return "sale"
     if intent == "COMMERCIAL":
         lower = text.lower()
-        if re.search(r'\b(for\s+rent|rent|rental|on\s+rent|for\s+lease|on\s+lease)\b', lower):
+        if re.search(r'\b(for\s+rent|rent|rental|on\s+rent|for\s+lease|on\s+lease)\b|\b(?:\u0644\u0644\u0625\u064a\u062c\u0627\u0631|\u0644\u0644\u0627\u064a\u062c\u0627\u0631|\u0625\u064a\u062c\u0627\u0631|\u0627\u064a\u062c\u0627\u0631)\b', lower):
             return "rent"
         if re.search(r'\b(lease)\b', lower):
             return "lease"
         return "sale"
     lower = text.lower()
-    if re.search(r'\b(for\s+rent|rent|rental|on\s+rent|for\s+lease|on\s+lease)\b', lower):
+    if re.search(r'\b(for\s+rent|rent|rental|on\s+rent|for\s+lease|on\s+lease)\b|\b(?:\u0644\u0644\u0625\u064a\u062c\u0627\u0631|\u0644\u0644\u0627\u064a\u062c\u0627\u0631|\u0625\u064a\u062c\u0627\u0631|\u0627\u064a\u062c\u0627\u0631)\b', lower):
         return "rent"
     if re.search(r'\b(lease)\b', lower):
         return "lease"
-    if re.search(r'\b(for\s+sale|sale|sell|selling|resale)\b', lower):
+    if re.search(r'\b(for\s+sale|sale|sell|selling|resale)\b|\b(?:\u0644\u0644\u0628\u064a\u0639|\u0628\u064a\u0639|\u0634\u0631\u0627\u0621)\b', lower):
         return "sale"
     return None
 
@@ -361,8 +414,8 @@ def _extract_timing_fields(text: str) -> dict:
 
 def _extract_price_per_sqft(text: str) -> float | None:
     patterns = [
-        r'(?i)(?:rate|price|asking(?:\s+price)?|rent|cost)\s*[:\-]?\s*(?:rs\.?\s*|inr\s*|₹)?\s*([\d,]+(?:\.\d+)?)\s*(?:\/-\s*)?(?:psf|psft|per\s+sq\.?\s*ft|per\s+sqft|per\s+square\s+foot)\b',
-        r'(?i)(?:rs\.?\s*|inr\s*|₹)?\s*([\d,]+(?:\.\d+)?)\s*(?:\/-\s*)?(?:psf|psft|per\s+sq\.?\s*ft|per\s+sqft|per\s+square\s+foot)\b',
+        r'(?i)(?:rate|price|asking(?:\s+price)?|rent|cost)\s*[:\-]?\s*(?:aed\s*|dhs\s*)?\s*([\d,]+(?:\.\d+)?)\s*(?:\/-\s*)?(?:psf|psft|per\s+sq\.?\s*ft|per\s+sqft|per\s+square\s+foot)\b',
+        r'(?i)(?:aed\s*|dhs\s*)?\s*([\d,]+(?:\.\d+)?)\s*(?:\/-\s*)?(?:psf|psft|per\s+sq\.?\s*ft|per\s+sqft|per\s+square\s+foot)\b',
     ]
     for pattern in patterns:
         m = re.search(pattern, text)
@@ -434,7 +487,7 @@ def _clean_person_name(name: str = "") -> str:
 
 def parse_message(raw_text: str, profile_name: str | None = None) -> dict:
     from normalize import preprocess_for_parsing, normalize_whatsapp_message
-    text = preprocess_for_parsing(raw_text)
+    text = preprocess_for_parsing(normalize_multilingual(raw_text))
     lower = text.lower()
     normalized_result = normalize_whatsapp_message(raw_text)
     result = {
@@ -495,15 +548,17 @@ def parse_message(raw_text: str, profile_name: str | None = None) -> dict:
             result["broker_name"] = sig_name
     result["broker_phone"] = sig_phone
     if not result["broker_phone"]:
-        phone_match = _RE.search(r'(\d{10})', text)
-        if phone_match:
-            result["broker_phone"] = phone_match.group(1)
+        for source in (text, normalize_multilingual(raw_text)):
+            phone_match = _RE.search(r'(?<!\d)(?:\+?971|00971|0)?[\s-]?5\d(?:[\s-]?\d){7}(?!\d)', source or "")
+            if phone_match:
+                result["broker_phone"] = re.sub(r"\D", "", phone_match.group(0))[-9:]
+                break
     all_contacts = _extract_all_contacts(text)
     broker_phone_clean = (result.get("broker_phone") or "").replace(" ", "")
     result["team_members"] = [c for c in all_contacts if c.get("name") and c["phone"] != broker_phone_clean]
     if _RE.search(r'\b(forwarded|fw[d]?[:.]?|from:|shared by|sent by)\b', lower):
         result["forwarded"] = 1
-    bhk_match = _RE.search(r'(\d+(?:\.\d+)?)\s*(bhk|rk|bedroom|b ed|b e d)', lower)
+    bhk_match = _RE.search(r'(\d+(?:\.\d+)?)\s*(bhk|rk|bedroom|b ed|b e d|\u063a\u0631\u0641(?:\u0629|\u0627\u062a)?)', lower)
     if bhk_match:
         result["bhk"] = bhk_match.group(1) + " BHK"
     elif _RE.search(r'\b(studio)\b', lower):
@@ -518,7 +573,7 @@ def parse_message(raw_text: str, profile_name: str | None = None) -> dict:
     if result["asset_type"] == "commercial":
         result["configuration"] = None
         result["bhk"] = None
-    text = re.sub(r"(\d)\s*:\s*(\d+)\s*(cr|crore|lac|lakh|l|lacs|lakhs|k|thousand)\b", lambda m: f"{m.group(1)}.{m.group(2)} {m.group(3)}", text, flags=re.I)
+    text = re.sub(r"(\d)\s*:\s*(\d+)\s*(m|mn|million|millions|k|thousands?)\b", lambda m: f"{m.group(1)}.{m.group(2)} {m.group(3)}", text, flags=re.I)
     lower = text.lower()
     price_from_explicit_line = False
     if result["price"] is None:
@@ -529,63 +584,24 @@ def parse_message(raw_text: str, profile_name: str | None = None) -> dict:
                 continue
             if not re.search(r'\b(?:rent|rental|asking\s+price)\b', line, re.I):
                 continue
-            explicit_price_line = _RE.search(r'(?i)\b(?:rent|rental|asking\s+price)\b\s*[:\-]\s*(?:rs\.?\s*|inr\s*|₹)?\s*([\d,]+(?:\.\d+)?)\s*(cr|crore|lacs?|lakhs?|l|k|thousand)?\b', line)
+            explicit_price_line = _RE.search(r'(?i)\b(?:rent|rental|asking\s+price)\b\s*[:\-]\s*(?:aed\s*|dhs\s*)?\s*([\d,]+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)?\b', line)
             if explicit_price_line:
                 break
         if explicit_price_line:
             amount = float(explicit_price_line.group(1).replace(",", ""))
             unit_raw = (explicit_price_line.group(2) or "").lower().rstrip("s")
-            if unit_raw in ("cr", "crore"):
-                result["price"] = amount; result["price_unit"] = "Cr"
-            elif unit_raw in ("lac", "lakh", "l"):
-                result["price"] = amount; result["price_unit"] = "Lac"
+            if unit_raw in ("m", "mn", "million"):
+                result["price"] = amount; result["price_unit"] = "M"
             elif unit_raw in ("k", "thousand"):
                 result["price"] = amount; result["price_unit"] = "K"
             else:
-                if amount >= 100000:
-                    result["price"] = round(amount / 100000, 2); result["price_unit"] = "Lac"
+                if amount >= 1000000:
+                    result["price"] = round(amount / 1000000, 2); result["price_unit"] = "M"
                 else:
                     result["price"] = amount; result["price_unit"] = "abs"
             price_from_explicit_line = True
-    ambiguous_m = re.search(r'(\d+\.\d+)\s*,?\s*/\s*(\d{1,2})\s*(cr|crore|lac|lakh|l|lacs|lakhs|k|thousand)\b', text, re.I)
-    if ambiguous_m and not price_from_explicit_line:
-        first = float(ambiguous_m.group(1)); second = int(ambiguous_m.group(2))
-        if first >= 0.1 and 1 <= second <= 99:
-            shorthand = ambiguous_m.group(0).strip()
-            system = ("You are a price normalizer for Indian real estate WhatsApp messages. "
-                      "Brokers write shorthands like '2.25,/50 cr' meaning price range 2.25 Cr to 2.50 Cr "
-                      "(the 50 after the slash is the decimal continuation: .50). "
-                      "Return ONLY a JSON object with these exact keys: price_min, price_max, unit. "
-                      "No markdown, no explanation, no code fences. "
-                      'Example: {"price_min": 2.25, "price_max": 2.5, "unit": "Cr"}')
-            prompt = f"Parse this broker price shorthand: {shorthand}"
-            for retry in range(2):
-                try:
-                    from routers.ai_chat import _ai_promote
-                    ai_result = _ai_promote(system, prompt)
-                    if ai_result:
-                        clean = ai_result.strip()
-                        if clean.startswith("```"):
-                            start = clean.find("{"); end = clean.rfind("}")
-                            if start >= 0 and end > start:
-                                clean = clean[start:end + 1]
-                        parsed = json.loads(clean)
-                        pmin = parsed.get("price_min"); pmax = parsed.get("price_max")
-                        unit_raw = (parsed.get("unit") or "").lower().rstrip("s")
-                        if pmin is not None and pmax is not None and 0 < pmin <= pmax:
-                            if unit_raw in ("cr", "crore"):
-                                result["price"] = pmax; result["price_unit"] = "Cr"
-                            elif unit_raw in ("lac", "lakh", "l"):
-                                result["price"] = pmax; result["price_unit"] = "Lac"
-                            elif unit_raw in ("k", "thousand"):
-                                result["price"] = pmax; result["price_unit"] = "K"
-                            break
-                except Exception:
-                    pass
-                if retry == 0:
-                    time.sleep(3)
     if result.get("price") is None and not price_from_explicit_line:
-        price_match = _RE.search(r'(?:rs\.?\s*|inr\s*|₹)?\s*([\d,]+(?:\.\d+)?)\s*(cr|crore|lacs?|lakhs?|l|k|thousand)\b', lower)
+        price_match = _RE.search(r'(?:aed\s*|dhs\s*)?\s*([\d,]+(?:\.\d+)?)\s*(m|mn|millions?|k|thousands?)\b', lower)
         if price_match and price_match.group(1).strip():
             try:
                 amount = float(price_match.group(1).replace(",", ""))
@@ -593,14 +609,12 @@ def parse_message(raw_text: str, profile_name: str | None = None) -> dict:
                 amount = None
             if amount and amount > 0:
                 unit_raw = price_match.group(2).lower().rstrip("s")
-                if unit_raw in ("cr", "crore"):
-                    result["price"] = amount; result["price_unit"] = "Cr"
-                elif unit_raw in ("lac", "lakh", "l"):
-                    result["price"] = amount; result["price_unit"] = "Lac"
+                if unit_raw in ("m", "mn", "million"):
+                    result["price"] = amount; result["price_unit"] = "M"
                 elif unit_raw in ("k", "thousand"):
                     result["price"] = amount; result["price_unit"] = "K"
         else:
-            abs_match = _RE.search(r'(?:rs\.?\s*|inr\s*|₹)\s*([\d,]+(?:\.\d+)?)', lower)
+            abs_match = _RE.search(r'(?:aed|dhs)\s*([\d,]+(?:\.\d+)?)', lower)
             if abs_match and abs_match.group(1).strip():
                 try:
                     amount = float(abs_match.group(1).replace(",", ""))
@@ -616,15 +630,15 @@ def parse_message(raw_text: str, profile_name: str | None = None) -> dict:
     if result.get("transaction_type") == "rent" and result.get("price") is not None:
         unit = (result.get("price_unit") or "").lower()
         price_val = result["price"]
-        if unit in ("cr", "crore", "crores"):
-            price_inr = price_val * 1_00_00_000
-        elif unit in ("lac", "lakh", "lakhs", "l"):
-            price_inr = price_val * 1_00_000
+        if unit in ("m", "mn", "million"):
+            price_aed = price_val * 1_000_000
         elif unit in ("k", "thousand"):
-            price_inr = price_val * 1_000
+            price_aed = price_val * 1_000
         else:
-            price_inr = price_val
-        if price_inr >= 1_00_00_000:
+            price_aed = price_val
+        # An annual rent above AED 10M is implausible stock; treat it as a
+        # mislabelled sale price.
+        if price_aed >= 10_000_000:
             result["transaction_type"] = "sale"
     if result["asset_type"] == "commercial":
         result["commercial_use_type"] = _infer_commercial_use_type(text)
@@ -692,9 +706,11 @@ def parse_message(raw_text: str, profile_name: str | None = None) -> dict:
         if loc.micro_market:
             result["micro_market"] = loc.micro_market
         else:
-            result["micro_market"] = _infer_micro_market(loc.raw)
+            result["micro_market"] = _infer_micro_market(loc.raw) or _infer_micro_market(text)
         if loc.street:
             result["street_name"] = loc.street
+    if not result.get("micro_market"):
+        result["micro_market"] = _infer_micro_market(text)
     dev_keywords = ["by ", "developer ", "builder ", "promoted by "]
     for kw in dev_keywords:
         idx = lower.find(kw)
@@ -1037,7 +1053,8 @@ def generate_summary_title(parsed: dict, raw_text: str = "") -> str | None:
     # misleading generic label "Property for sale".
     if not _parsed_has_market_anchor(parsed, raw_text):
         return None
-    lower = raw_text.lower()
+    normalized_text = normalize_multilingual(raw_text)
+    lower = normalized_text.lower()
     intent = (parsed.get("intent") or "").upper()
     message_type = (parsed.get("message_type") or "").upper()
     def clean_label(value):
@@ -1052,8 +1069,8 @@ def generate_summary_title(parsed: dict, raw_text: str = "") -> str | None:
     def format_price(value, unit: str = "") -> str:
         if isinstance(value, str):
             already_formatted = re.sub(r"\s+", " ", value).strip()
-            if re.search(r"(?i)(₹|\brs\.?\b|\binr\b).*(?:\bcr\b|\bcrore\b|\blac\b|\blakh\b|\bk\b)", already_formatted):
-                return already_formatted.replace("Rs.", "₹").replace("Rs", "₹")
+            if re.search(r"(?i)(?:aed|dhs|dirham).*(?:\bm\b|\bmn\b|\bmillion\b|\bk\b)", already_formatted):
+                return already_formatted
             value = re.sub(r"[^\d.]", "", already_formatted)
         try:
             number = float(value)
@@ -1062,18 +1079,14 @@ def generate_summary_title(parsed: dict, raw_text: str = "") -> str | None:
         if number <= 0:
             return ""
         normalized_unit = clean_label(unit).lower()
-        if normalized_unit in {"cr", "crore", "crores"}:
-            return f"₹{number:g} Cr"
-        if normalized_unit in {"lac", "lakh", "lakhs", "l"}:
-            return f"₹{number:g} Lakh"
+        if normalized_unit in {"m", "mn", "million", "millions"}:
+            return f"AED {number:g}M"
         if normalized_unit in {"k", "thousand"}:
-            return f"₹{number:g} K"
-        if number >= 10_000_000:
-            return f"₹{number / 10_000_000:g} Cr"
-        if number >= 100_000:
-            return f"₹{number / 100_000:g} Lakh"
+            return f"AED {number:g}K"
+        if number >= 1_000_000:
+            return f"AED {number / 1_000_000:g}M"
         if number >= 1_000:
-            return f"₹{number / 1_000:g} K"
+            return f"AED {round(number / 1_000):g}K"
         return ""
     prop_type = clean_label(parsed.get("property_type"))
     prop_pats = [(r'\bflat\b',"Flat"),(r'\bapartment\b',"Apartment"),(r'\bpenthouse\b',"Penthouse"),
@@ -1149,7 +1162,7 @@ def generate_summary_title(parsed: dict, raw_text: str = "") -> str | None:
         bm = re.search(r'["\u201C\u201D]([^"\u201C\u201D]{3,50})["\u201C\u201D]', first_line)
         if bm:
             cand = bm.group(1).strip().strip("_").strip()
-            if cand and not re.search(r'(price|lac|cr|sqft|floor|contact|call|property|available|building|tower)', cand, re.IGNORECASE):
+            if cand and not re.search(r'(price|aed|dhs|sqft|floor|contact|call|property|available|building|tower)', cand, re.IGNORECASE):
                 bldg = cand
     bldg = clean_label(bldg)
     places = []

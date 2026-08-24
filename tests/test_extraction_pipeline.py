@@ -12,32 +12,33 @@ import app
 import extraction
 import lab.config
 from message_identity import author_content_fingerprint, normalize_message_content
+from deterministic_splitters import parse_message as parse_template_message
 from listing_validation import apply_validation, validate_listing
 
 
 def test_author_content_fingerprint_is_stable_across_transport_whitespace():
     first = author_content_fingerprint(
-        sender_phone="919900001234",
+        sender_phone="971500001234",
         sender_jid="12345@lid",
-        message="3 BHK for rent\r\nBandra West  |  ₹3 lakh",
+        message="3 BHK for rent\r\nDubai Marina  |  AED 250K",
     )
     second = author_content_fingerprint(
-        sender_phone="919900001234",
+        sender_phone="971500001234",
         sender_jid="different@lid",
-        message="  3 BHK for rent\nBandra West | ₹3 lakh  ",
+        message="  3 BHK for rent\nDubai Marina | AED 250K  ",
     )
     assert first == second
     assert normalize_message_content("A\n\n\nB") == "a\n\nb"
 
 
 def test_author_content_fingerprint_changes_for_author_or_content_edit():
-    base = author_content_fingerprint(sender_phone="919900001234", message="3 BHK Bandra")
-    assert author_content_fingerprint(sender_phone="919900009999", message="3 BHK Bandra") != base
-    assert author_content_fingerprint(sender_phone="919900001234", message="4 BHK Bandra") != base
+    base = author_content_fingerprint(sender_phone="971500001234", message="3 BHK Dubai Marina")
+    assert author_content_fingerprint(sender_phone="971500009999", message="3 BHK Dubai Marina") != base
+    assert author_content_fingerprint(sender_phone="971500001234", message="4 BHK Dubai Marina") != base
 
 
 def test_broker_contact_does_not_leak_mobile_field_label():
-    source = "Contact\nJitendra Pathak\nMumbai\nMobile: 70212 38093"
+    source = "Contact\nJitendra Pathak\nDubai\nMobile: 70212 38093"
 
     assert extraction._clean_broker_name("Mobile") is None
     assert extraction._extract_broker_contact_from_text(source) == (
@@ -51,45 +52,45 @@ def test_single_property_brochure_is_not_split_into_fake_listings():
 - Plot Area: Approx. 13,000 Sq. Ft.
 - Building Carpet Area: Approx. 3,500 Sq. Ft.
 Asking Price
-₹15 Crore (Non-Negotiable)
+AED 15M (Non-Negotiable)
 """
 
     assert ai_extraction._single_property_document(source)
 
 
 def test_on_request_is_not_promoted_to_a_building_name():
-    source = "3 BHK for rent\nBuilding Name: On Request\nBandra West"
-    assert extraction._infer_building_name_from_source(source, "Bandra West") is None
+    source = "3 BHK for rent\nBuilding Name: On Request\nDubai Marina"
+    assert extraction._infer_building_name_from_source(source, "Dubai Marina") is None
 
 
 def test_source_labels_recover_building_and_locality_without_ai_values():
     parsed = extraction._ai_extraction_to_parsed(
         {"listing_type": "rent", "price": {}, "locality": {}, "building_name": None},
-        "*Avail Commercial Space for Rent*\n*Location : Lower Parel West*\n*Odd Phonix Mall*\n*Area: 1200 approx sf*",
+        "*Avail Commercial Space for Rent*\n*Location : Dubai Marina*\n*Bay Central Tower*\n*Area: 1200 approx sf*",
         "Broker",
         "Broker",
     )
 
-    assert parsed["building_name"] == "Odd Phonix Mall"
-    assert parsed["location_raw"] == "Lower Parel West"
+    assert parsed["building_name"] == "Bay Central Tower"
+    assert parsed["location_raw"] == "Dubai Marina"
 
 
 def test_source_numbered_heading_recovers_building_and_locality_without_ai_values():
     parsed = extraction._ai_extraction_to_parsed(
         {"listing_type": "rent", "price": {}, "locality": {}, "building_name": None},
-        "*1. IndiaBulls Blu – Worli*\n• 4 BHK\n• 1,700 Sq. Ft.\n• Rent: ₹7.50 Lakhs/month",
+        "*1. Cayan Tower – Dubai Marina*\n• 4 BHK\n• 1,700 Sq. Ft.\n• Rent: AED 220K/month",
         "Broker",
         "Broker",
     )
 
-    assert parsed["building_name"] == "IndiaBulls Blu"
-    assert parsed["location_raw"] == "Worli"
+    assert parsed["building_name"] == "Cayan Tower"
+    assert parsed["location_raw"] == "Dubai Marina"
 
 
 def test_bare_plot_is_not_promoted_to_commercial_without_source_evidence():
     result = ai_extraction._source_ground_asset_category(
         {"property_category": "commercial"},
-        "Plot Area: 13,000 sq ft, Vasai",
+        "Plot Area: 13,000 sq ft, Dubailand",
     )
 
     assert result["property_category"] == "residential"
@@ -101,7 +102,7 @@ def test_rental_income_cannot_be_saved_as_sale_price():
     parsed = {
         "price": 1_000_000,
         "price_unit": "abs",
-        "price_raw_text": "Current Monthly Rental Income: ₹10,00,000",
+        "price_raw_text": "Current Monthly Rental Income: AED 1,000,000",
         "area_sqft": 13_000,
         "intent": "SELL",
         "property_category": "PLOT",
@@ -125,7 +126,7 @@ def test_generic_commercial_sale_cannot_publish_a_tiny_total_price():
         "price": 1_500,
         "price_unit": "abs",
         "total_asking_price": 1_500,
-        "micro_market": "Bandra West",
+        "micro_market": "Business Bay",
     }
 
     checked = apply_validation(parsed, validate_listing(parsed))
@@ -145,7 +146,7 @@ def test_commercial_bulk_slice_with_multiple_asking_quotes_is_quarantined():
 
     gated = extraction._apply_source_evidence_gates(
         item,
-        "Commercial listing Bandra West\nAsking 2.25 Cr\nAsking 5 lakhs\nAsking 4000psf",
+        "Commercial listing Business Bay\nAsking AED 2.25M\nAsking 500K\nAsking AED 160psf",
     )
 
     assert gated["price"] == {}
@@ -158,21 +159,21 @@ def test_price_normalization_uses_explicit_broker_unit_not_ai_scale():
         "listing_type": "sale",
         "property_category": "residential",
         "bhk": 2,
-        "locality": {"raw_mention": "Andheri West", "resolved_locality": "Andheri West"},
+        "locality": {"raw_mention": "Dubai Marina", "resolved_locality": "Dubai Marina"},
         "furnishing_status": None,
         "title": None,
         "extraction_confidence": "high",
     }
 
     for raw, ai_amount, expected, unit in [
-        ("Asking: 1.15.Cr", 11500000, 11500000, "cr"),
-        ("Price: 75.Lakh", 7500000, 7500000, "lac"),
-        ("Quote: 2.80 Crore", 2800, 28000000, "cr"),
+        ("Asking: 1.15.M", 1150000, 1150000, "m"),
+        ("Price: 75.K", 75000, 75000, "k"),
+        ("Quote: 2.80 Million", 2.8, 2800000, "m"),
     ]:
         item = {**base, "price": {"amount": ai_amount, "unit": "total", "raw_price_text": raw}}
         parsed = extraction._ai_extraction_to_parsed(item, raw, "Broker", "Broker")
         assert parsed["price"] == expected
-        # Typed storage keeps the price as absolute rupees; the native unit is
+        # Typed storage keeps the price as absolute dirhams; the native unit is
         # retained only as evidence in the raw price text.
         assert parsed["price_unit"] == "abs"
 
@@ -180,7 +181,7 @@ def test_price_normalization_uses_explicit_broker_unit_not_ai_scale():
 def test_pg_and_broadcast_headers_are_not_actionable_property_rows():
     assert not extraction._is_actionable_property_slice("_UPDATED 3BHK OUTRIGHT LIST_")
     assert not extraction._is_actionable_property_slice(
-        "Girl PG\nLokhandwala\nSingle Rent 35k\nDouble Sharing"
+        "Girl PG\nAl Barsha\nSingle Rent 35k\nDouble Sharing"
     )
 
 
@@ -193,7 +194,7 @@ def test_single_k_rent_requirement_is_source_grounded_to_rent():
 
     corrected = extraction._source_ground_requirement_item(
         item,
-        "Urgent requirement furnished flat\nLocation Goregaon\nRent 35k",
+        "Urgent requirement furnished flat\nLocation JVC\nRent 35k",
     )
 
     assert corrected["transaction_type"] == "rent"
@@ -211,12 +212,12 @@ def test_single_up_to_sale_budget_is_an_absolute_upper_bound():
 
     corrected = extraction._source_ground_requirement_item(
         item,
-        "Requirement: 2 / 2.5 / Compact 3 BHK for purchase in Bandra East\n"
-        "Budget: Up to ₹6 Cr",
+        "Requirement: 2 / 2.5 / Compact 3 BHK for purchase in Business Bay\n"
+        "Budget: Up to AED 6M",
     )
 
     assert corrected["budget_min"] is None
-    assert corrected["budget_max"] == 60_000_000
+    assert corrected["budget_max"] == 6_000_000
 
 
 def test_explicit_requirement_heading_overrides_sale_like_description():
@@ -227,8 +228,8 @@ def test_explicit_requirement_heading_overrides_sale_like_description():
         "extraction_confidence": "high",
     }
     source = """VERY URGENT REQUIREMENT
-50 + ROOM HOTEL ON SALE IN MUMBAI, NAVI MUMBAI AND GOA
-BUDGET 100CR TO 200CR"""
+50 + ROOM HOTEL ON SALE IN DUBAI, ABU DHABI AND SHARJAH
+BUDGET 100M TO 200M"""
 
     corrected = extraction._apply_requirement_source_guard([item], source, [source])
 
@@ -238,10 +239,10 @@ BUDGET 100CR TO 200CR"""
 @pytest.mark.parametrize(
     "source",
     [
-        "URGENT REQUIRED 2 BHK IN BANDRA. PLEASE SHARE DIRECT LISTINGS",
-        "Any 3 BHK available in Khar? Client ready to close",
-        "koi 1 BHK hai kya Bandra mein, budget 1.5L",
-        "Wanted 1 office on lease near BKC",
+        "URGENT REQUIRED 2 BHK IN DUBAI MARINA. PLEASE SHARE DIRECT LISTINGS",
+        "Any 3 BHK available in JVC? Client ready to close",
+        "koi 1 BHK hai kya Dubai Marina mein, budget 150k",
+        "Wanted 1 office on lease near DIFC",
     ],
 )
 def test_requirement_guard_covers_request_shorthand_without_marketing_keywords(source):
@@ -260,7 +261,7 @@ def test_requirement_guard_covers_request_shorthand_without_marketing_keywords(s
 @pytest.mark.parametrize(
     "source",
     [
-        "Looking for the perfect office? Premium office available at ₹2L/month",
+        "Looking for the perfect office? Premium office available at AED 200K/month",
         "Join our channel for latest properties & requirements",
         "Client profile required before confirming viewing",
     ],
@@ -270,37 +271,37 @@ def test_requirement_guard_does_not_treat_listing_marketing_copy_as_demand(sourc
 
 
 def test_segment_document_reconstructs_blocks_and_classifies_multi_listing():
-    message = """1. RUSTOMJEE PARAMOUNT
+    message = """1. BAY CENTRAL TOWER
 3 BHK
 1350 carpet
-10.5 Cr
+10.5M
 
-2. RUSTOMJEE PARAMOUNT
+2. BAY CENTRAL TOWER
 4 BHK
 1800 carpet
-13 Cr"""
+13M"""
 
     document = ai_extraction._segment_document(message)
 
     assert document["document_type"] == "Multi Listing"
     assert document["block_count"] == 2
-    assert document["blocks"][0]["text"].startswith("1. RUSTOMJEE PARAMOUNT")
-    assert document["blocks"][1]["text"].startswith("2. RUSTOMJEE PARAMOUNT")
+    assert document["blocks"][0]["text"].startswith("1. BAY CENTRAL TOWER")
+    assert document["blocks"][1]["text"].startswith("2. BAY CENTRAL TOWER")
 
 
 def test_numbered_commercial_items_keep_fields_until_next_item_boundary():
     message = """Available Office on LL, Commercial space and Offices
 
-1. Fort near BSE (Office)
+1. Gate Avenue, DIFC (Office)
 650 sq.ft carpet
 Furnished office
 Self-contained
-Rent: 1.80 lakhs
+Rent: AED 180K
 
-2. Mittal towers, Nariman Point (Office)
+2. Index Tower, DIFC (Office)
 739 sq.ft BU
 No parking
-Rent: @Rs 350 per sq.ft +GST
+Rent: @AED 130 per sq.ft +GST
 
 For viewings call
 Chandan Fatnani
@@ -311,40 +312,40 @@ Bakhthavar J Estates"""
     assert document["block_count"] == 2
     assert "Furnished office" in document["blocks"][0]["text"]
     assert "Self-contained" in document["blocks"][0]["text"]
-    assert "Rent: 1.80 lakhs" in document["blocks"][0]["text"]
-    assert "Mittal towers" not in document["blocks"][0]["text"]
-    assert "Rent: @Rs 350 per sq.ft +GST" in document["blocks"][1]["text"]
+    assert "Rent: AED 180K" in document["blocks"][0]["text"]
+    assert "Index Tower" not in document["blocks"][0]["text"]
+    assert "Rent: @AED 130 per sq.ft +GST" in document["blocks"][1]["text"]
 
 
 def test_segment_document_recognizes_inline_bold_listing_boundaries():
-    message = """*Available Bandra West Brand new building*
-*Crescent* 3bhk 1342 sqft pali hill price 12.12cr
-*Parishram* 4bhk - 2046 sqft carpet hiegher floor sea view pali hill price 31.32cr
-bandra west *New brand building* *Penthouse* 5188sqft carpet price 76.8cr bandra west
-*Available for sale 2Bhk* Building Name: *Pioneer Heights* (khar West) Price 3.70cr"""
+    message = """*Available Dubai Marina Brand new building*
+*Cayan* 3bhk 1342 sqft marina view price 12.12m
+*Marina Gate* 4bhk - 2046 sqft carpet hiegher floor sea view dubai marina price 31.32m
+dubai marina *New brand building* *Penthouse* 5188sqft carpet price 76.8m dubai marina
+*Available for sale 2Bhk* Building Name: *Pioneer Heights* (jvc) Price 3.70m"""
 
     document = ai_extraction._segment_document(message)
 
     assert document["document_type"] == "Multi Listing"
     assert document["block_count"] == 4
     assert [block["text"].splitlines()[0] for block in document["blocks"]] == [
-        "*Crescent* 3bhk 1342 sqft pali hill price 12.12cr",
-        "*Parishram* 4bhk - 2046 sqft carpet hiegher floor sea view pali hill price 31.32cr",
-        "*Penthouse* 5188sqft carpet price 76.8cr bandra west",
-        "*Available for sale 2Bhk* Building Name: *Pioneer Heights* (khar West) Price 3.70cr",
+        "*Cayan* 3bhk 1342 sqft marina view price 12.12m",
+        "*Marina Gate* 4bhk - 2046 sqft carpet hiegher floor sea view dubai marina price 31.32m",
+        "*Penthouse* 5188sqft carpet price 76.8m dubai marina",
+        "*Available for sale 2Bhk* Building Name: *Pioneer Heights* (jvc) Price 3.70m",
     ]
 
 
 def test_segment_document_keeps_labelled_listing_fields_with_broker_footer():
-    message = """🏢 Shapporji Pallonji ( BKC 28 )
+    message = """🏢 Bay Central ( Dubai Marina )
 🏡 Config: 2BHK
-📍 Location: Bkc
+📍 Location: Dubai Marina
 🛋️ Furnishing: Fully-Furnished
-💰 Rent: ₹ 1,50,000
+💰 Rent: AED 180,000
 📦 Possession: Immediate
 📲 For More Details & Insp Call
 Carol Sequeira
-9594463193
+050 123 4567
 Luxanto Realty
 
 Very beautiful done up 🔥🔥"""
@@ -352,23 +353,23 @@ Very beautiful done up 🔥🔥"""
     document = ai_extraction._segment_document(message)
 
     assert document["block_count"] == 1
-    assert "Shapporji Pallonji" in document["blocks"][0]["text"]
+    assert "Bay Central" in document["blocks"][0]["text"]
     assert "Config: 2BHK" in document["blocks"][0]["text"]
     assert "Luxanto Realty" in document["blocks"][0]["text"]
 
 
 def test_pipe_delimited_building_heading_belongs_to_following_emoji_listing():
-    message = """🏙️ BANDRA EAST | RESALE INVENTORY
+    message = """🏙️ BUSINESS BAY | RESALE INVENTORY
 ━━━━━━━━━━━━━━━━━━━━━
-🔹 RUSTOMJEE CLEON | Kalanagar
+🔹 REVA RESIDENCES | Business Bay
 🏡 2 BHK | 📐 660 sq.ft Carpet
-💰 ₹4.00 Cr
+💰 AED 4.00M
 🏡 1 BHK | 📐 440 sq.ft Carpet
-💰 ₹2.50 Cr
+💰 AED 2.50M
 ━━━━━━━━━━━━━━━━━━━━━
-🔹 KALPATARU MAGNUS | Bandra East
+🔹 AYKON CITY | Business Bay
 🏡 3 BHK | 📐 1,350 sq.ft Carpet
-💰 ₹8.75 Cr"""
+💰 AED 8.75M"""
 
     from deterministic_splitters import split_message_into_chunks
 
@@ -376,45 +377,47 @@ def test_pipe_delimited_building_heading_belongs_to_following_emoji_listing():
 
     assert pattern == "emoji_bullet"
     assert len(chunks) == 3
-    assert "KALPATARU MAGNUS" not in chunks[1]
-    assert "KALPATARU MAGNUS" in chunks[2]
+    assert "AYKON CITY" not in chunks[1]
+    assert "AYKON CITY" in chunks[2]
 
 
-def test_price_formatter_does_not_render_crore_sale_as_monthly_rent():
-    formatted = ai_extraction._format_price_amount(12_12_00_000, is_rent=True)
+def test_price_formatter_does_not_render_million_sale_as_monthly_rent():
+    formatted = ai_extraction._format_price_amount(12_100_000, is_rent=True)
 
     assert "/month" not in formatted
-    assert formatted == "₹12.1 Cr"
+    # Above the annual-rent plausibility ceiling the rent suffix is suppressed.
+    assert "/yr" not in formatted
+    assert formatted == "AED 12.1 M"
 
 
 def test_search_price_formatter_does_not_emit_bare_month_suffix():
     from routers.common import _format_listing_price
 
     assert _format_listing_price({"price": 0, "price_unit": "abs", "intent": "RENT"}) == ""
-    assert _format_listing_price({"price": 350, "price_unit": "per_sqft", "intent": "RENT"}) == "₹350/sqft"
+    assert _format_listing_price({"price": 350, "price_unit": "per_sqft", "intent": "RENT"}) == "AED 350/sqft"
 
 
 def test_dash_separated_inventory_broadcast_stays_supply_and_drops_footer():
-    message = """💢 GURUKIRPA REALTORS MUMBAI
+    message = """💢 MARINA LETTINGS DUBAI
 DIRECT INVENTORIES
 ━━━━━━━━━━━━━━━━━━
 COMMERCIAL SPACE
 Area – 1200 Sq. Ft.
-Rent – ₹5 Lakhs
-Linking Road, Bandra West
+Rent – AED 500K
+Al Wasl Road, Jumeirah
 ━━━━━━━━━━━━━━━━━━
 COMMERCIAL SPACE
 Area – 2000 Sq. Ft.
-Rent – ₹7 Lakhs
-Santacruz West
+Rent – AED 700K
+Al Barsha
 ━━━━━━━━━━━━━━━━━━
 COMMERCIAL SPACE
 Area – 3000 Sq. Ft.
-Rent – ₹10 Lakhs
-Worli
+Rent – AED 1M
+Business Bay
 ━━━━━━━━━━━━━━━━━━
 CLIENT PROFILE REQUIRED PRIOR TO CONFIRMING VIEWINGS
-GURUKIRPA REALTORS MUMBAI"""
+MARINA LETTINGS DUBAI"""
 
     document = ai_extraction._segment_document(message)
     assert document["document_type"] == "Multi Listing"
@@ -430,16 +433,16 @@ def test_all_trailing_broker_names_are_not_building_candidates():
     )
 
     message = """2 BHK ON LEASE
-MOHAN MAHAL | Off Linking Road, Khar
+MOHAN MAHAL | Off Sheikh Zayed Road, Al Barsha
 Rent: 75K
 
 Wasim 9000000001
-GURUKIRPA REALTORS MUMBAI
+MARINA REALTORS DUBAI
 HARKIRAT SINGH
 9000000002 | 9000000003"""
 
     signature_names = _extract_broker_signature_names(message)
-    assert signature_names == {"wasim", "gurukirpa realtors mumbai", "harkirat singh"}
+    assert signature_names == {"wasim", "marina realtors dubai", "harkirat singh"}
 
     parsed = {"building_name": "HARKIRAT SINGH", "validation_flags": []}
     ai_item = {"building_name": "HARKIRAT SINGH"}
@@ -460,44 +463,44 @@ def test_katara_bulk_broadcast_uses_one_line_per_listing_and_drops_footer_items(
     message = """Dear Associates
 
 *Residential Outright*
-*Cuffe Parade / Nariman Point / Colaba / Churchgate*- *New Listings added*
+*Dubai Marina / JBR / Palm Jumeirah / Downtown*- *New Listings added*
 
-*NCPA* - Nariman Point 3 BHK - *2880 sq ft* - Fully Furnished - *40 Cr*
-*Cuffe Parade - Premium Tower* - 4 BHK - *2600 sq ft* - *24.50 Cr*
-*Waterfront towers* Near Colaba PO - 3000 sq ft - 31.50 Cr
-*Ravindra Mansion* - Churchgate 3 BHK 1500 sq ft - Partly furnished
+*Marina Promenade* - Dubai Marina 3 BHK - *2880 sq ft* - Fully Furnished - *40M*
+*Marina Gate - Premium Tower* - 4 BHK - *2600 sq ft* - *24.50M*
+*Waterfront towers* Near Palm Gateway - 3000 sq ft - 31.50M
+*Silver Sands* - JBR 3 BHK 1500 sq ft - Partly furnished
 
 *Kindly allow 24 Hrs to set up visits - Client Business profile needed*
-Katara Elite Estates
-Prem Katara
-MAHARERA Regd.
+Marina Elite Estates
+Omar Haddad
+RERA Regd.
 9867077740 / 8169085673"""
     items = [
-        {"building_name": "NCPA", "bhk": 3, "carpet_area_sqft": 2880},
-        {"building_name": "Cuffe Parade - Premium Tower", "bhk": 4, "carpet_area_sqft": 2600},
+        {"building_name": "Marina Promenade", "bhk": 3, "carpet_area_sqft": 2880},
+        {"building_name": "Marina Gate - Premium Tower", "bhk": 4, "carpet_area_sqft": 2600},
         {"building_name": "Waterfront towers", "carpet_area_sqft": 3000},
-        {"building_name": "Ravindra Mansion", "bhk": 3, "carpet_area_sqft": 1500},
-        {"building_name": "Katara Elite Estates"},
+        {"building_name": "Silver Sands", "bhk": 3, "carpet_area_sqft": 1500},
+        {"building_name": "Marina Elite Estates"},
     ]
 
     slices = _slice_blocks_for_ai_items(message, items)
 
-    assert slices[0].startswith("*NCPA*") and "Premium Tower" not in slices[0]
-    assert slices[1].startswith("*Cuffe Parade - Premium Tower*") and "NCPA" not in slices[1]
-    assert slices[2].startswith("*Waterfront towers*") and "Ravindra Mansion" not in slices[2]
-    assert slices[3].startswith("*Ravindra Mansion*") and "Katara Elite" not in slices[3]
+    assert slices[0].startswith("*Marina Promenade*") and "Premium Tower" not in slices[0]
+    assert slices[1].startswith("*Marina Gate - Premium Tower*") and "Marina Promenade" not in slices[1]
+    assert slices[2].startswith("*Waterfront towers*") and "Silver Sands" not in slices[2]
+    assert slices[3].startswith("*Silver Sands*") and "Marina Elite" not in slices[3]
     assert not _is_actionable_property_slice(slices[4])
-    assert _extract_broker_signature_names(message) == {"katara elite estates", "prem katara"}
+    assert _extract_broker_signature_names(message) == {"marina elite estates", "omar haddad"}
 
 
 def test_same_locality_requirements_use_distinct_configuration_evidence():
     from extraction import _slice_blocks_for_ai_items
 
-    message = """1. Rent: 3 BHK, Fully Furnished | Bandra West | Budget: Up to ₹2.50L
-2. Rent: 4 BHK, Fully Furnished | Bandra West | Budget: Up to ₹8L"""
+    message = """1. Rent: 3 BHK, Fully Furnished | Dubai Marina | Budget: Up to AED 250K
+2. Rent: 4 BHK, Fully Furnished | Dubai Marina | Budget: Up to AED 800K"""
     items = [
-        {"bhk": 4, "locality_raw": "Bandra West", "listing_type": "requirement"},
-        {"bhk": 3, "locality_raw": "Bandra West", "listing_type": "requirement"},
+        {"bhk": 4, "locality_raw": "Dubai Marina", "listing_type": "requirement"},
+        {"bhk": 3, "locality_raw": "Dubai Marina", "listing_type": "requirement"},
     ]
 
     slices = _slice_blocks_for_ai_items(message, items)
@@ -526,10 +529,10 @@ def test_unified_prompt_requires_exclusive_source_slices_and_no_enrichment():
 def test_model_source_slices_must_be_exclusive_raw_evidence():
     from extraction import _llm_source_slices_are_grounded
 
-    source = "*1. A – Bandra West*\n2 BHK\n₹2 L\n\n*2. B – Khar West*\n3 BHK\n₹3 L"
+    source = "*1. A – Dubai Marina*\n2 BHK\nAED 200K\n\n*2. B – JVC*\n3 BHK\nAED 300K"
     items = [
-        {"source_slice": "*1. A – Bandra West*\n2 BHK\n₹2 L"},
-        {"source_slice": "*2. B – Khar West*\n3 BHK\n₹3 L"},
+        {"source_slice": "*1. A – Dubai Marina*\n2 BHK\nAED 200K"},
+        {"source_slice": "*2. B – JVC*\n3 BHK\nAED 300K"},
     ]
 
     assert _llm_source_slices_are_grounded(source, items) == [
@@ -538,29 +541,29 @@ def test_model_source_slices_must_be_exclusive_raw_evidence():
     assert _llm_source_slices_are_grounded(source, [{"source_slice": source}, items[1]]) == []
 
 
-def test_ai_extract_sends_reconstructed_document_to_provider(monkeypatch):
-    message = """1. RUSTOMJEE PARAMOUNT
+def test_ai_extract_sends_raw_message_to_provider(monkeypatch):
+    message = """1. BAY CENTRAL TOWER
 3 BHK
 1350 carpet
-10.5 Cr
+10.5M
 
-2. RUSTOMJEE PARAMOUNT
+2. BAY CENTRAL TOWER
 4 BHK
 1800 carpet
-13 Cr"""
+13M"""
     captured = {}
 
     def fake_call_provider(_provider, messages, **_kwargs):
-        captured["messages"] = messages
+        captured.setdefault("calls", []).append(messages)
         return [
             {
                 "listing_type": "sale",
                 "property_category": "residential",
                 "bhk": 3,
-                "price": {"amount": 105000000, "unit": "total", "period": "one_time", "raw_price_text": "10.5 Cr"},
-                "locality": {"raw_mention": "Bandra West", "resolved_locality": "Bandra West", "confidence": "high"},
-                "building_name": "RUSTOMJEE PARAMOUNT",
-                "title": "3 BHK for Sale in Bandra West — RUSTOMJEE PARAMOUNT",
+                "price": {"amount": 10500000, "unit": "total", "period": "one_time", "raw_price_text": "10.5M"},
+                "locality": {"raw_mention": "Dubai Marina", "resolved_locality": "Dubai Marina", "confidence": "high"},
+                "building_name": "BAY CENTRAL TOWER",
+                "title": "3 BHK for Sale in Dubai Marina — BAY CENTRAL TOWER",
                 "extraction_confidence": "high",
             }
         ]
@@ -572,13 +575,12 @@ def test_ai_extract_sends_reconstructed_document_to_provider(monkeypatch):
     result = ai_extraction.ai_extract(message, ctx={})
 
     assert result["extraction_source"] == "ai"
-    assert result["document"]["document_type"] == "Multi Listing"
-    assert result["document"]["block_count"] == 2
-    content = captured["messages"][1]["content"]
-    payload = json.loads(content[content.index("{"):])
-    assert payload["document_type"] == "Multi Listing"
-    assert len(payload["blocks"]) == 2
-    assert result["extraction"]["building_name"] == "RUSTOMJEE PARAMOUNT"
+    # The first (route-neutral) provider call must receive the raw body
+    # byte-for-byte: no client-side classification, splitting, or rewriting.
+    unified_content = captured["calls"][0][1]["content"]
+    payload = json.loads(unified_content[unified_content.index("{"):])
+    assert payload["message"] == message
+    assert result["extraction"]["building_name"] == "BAY CENTRAL TOWER"
 
 
 class _Storage:
@@ -589,13 +591,24 @@ class _Storage:
         self.resolver = []
         self.listing_ids = []
         self.processed = []
+        self.raw_saved = []
 
     def get_organization(self, _org_id):
         return None
 
+    def get_raw_by_uid(self, _uid):
+        return None
+
+    def save_raw_message(self, raw):
+        self.raw_saved.append(raw)
+        return 900 + len(self.raw_saved)
+
     def save_parsed(self, observation):
         self.saved.append(observation)
         return 41
+
+    def save_typed_observation(self, observation):
+        return self.save_parsed(observation)
 
     def save_resolver_decision(self, decision):
         self.resolver.append(decision)
@@ -614,8 +627,8 @@ def test_single_message_worker_uses_property_parser(monkeypatch):
     storage = _Storage()
     ai_item = {
         "listing_type": "sale", "property_category": "residential", "bhk": 3,
-        "price": {"amount": 5.0, "unit": "cr", "period": "total"},
-        "locality": {"raw_mention": "Bandra West", "resolved_locality": "Bandra West", "confidence": "high"},
+        "price": {"amount": 5.0, "unit": "m", "period": "total"},
+        "locality": {"raw_mention": "Dubai Marina", "resolved_locality": "Dubai Marina", "confidence": "high"},
         "furnishing_status": None, "title": None, "extraction_confidence": "high",
     }
 
@@ -625,7 +638,7 @@ def test_single_message_worker_uses_property_parser(monkeypatch):
     })
     monkeypatch.setattr(app, "compute_embedding", lambda _parsed: None)
     monkeypatch.setattr(app, "resolve_parsed", lambda *_args: {})
-    monkeypatch.setattr(app, "generate_summary_title", lambda *_args: "3 BHK in Bandra West")
+    monkeypatch.setattr(app, "generate_summary_title", lambda *_args: "3 BHK in Dubai Marina")
     monkeypatch.setattr(extraction, "get_bus", lambda: SimpleNamespace(publish=lambda *_args: None))
 
     extraction.process_raw_message(
@@ -636,8 +649,8 @@ def test_single_message_worker_uses_property_parser(monkeypatch):
             "sender_jid": "919999999999@s.whatsapp.net",
             "sender_phone": "919999999999",
             "group": "group@g.us",
-            "group_name": "Bandra Brokers",
-            "msg_text": "3 BHK for sale in Bandra West at 5 Cr",
+            "group_name": "Dubai Marina Brokers",
+            "msg_text": "3 BHK for sale in Dubai Marina at AED 5M",
             "instance": "test",
             "is_dm": False,
             "message_uid": "test-7",
@@ -649,27 +662,29 @@ def test_single_message_worker_uses_property_parser(monkeypatch):
 
     assert len(storage.saved) == 1
     assert storage.saved[0].intent == "SELL"
-    assert storage.saved[0].micro_market == "Bandra West"
+    assert storage.saved[0].micro_market == "Dubai Marina"
     assert storage.saved[0].broker_phone == "9999999999"
-    assert storage.saved[0].broker_name == "+91 9999999999"
+    assert storage.saved[0].broker_name is None
     assert storage.listing_ids == [41]
     assert storage.processed == [7]
 
 
-def test_multi_listing_post_uses_one_ai_result_per_option(monkeypatch):
-    """AI owns boundaries and every item retains the untouched source."""
+def test_multi_item_ai_answer_without_exclusive_slices_is_quarantined(monkeypatch):
+    """A multi-item AI answer whose items cannot be tied to exclusive source
+    evidence must never be published as cards — a single review stub is kept
+    instead of risking cross-wired BHK/price/building fields."""
     storage = _Storage()
     ai_items = [
         {
             "listing_type": "rent", "property_category": "residential", "bhk": 2,
             "carpet_area_sqft": 700, "price": {"amount": 100000, "unit": "total", "period": "per_month"},
-            "locality": {"raw_mention": "Turner Road", "resolved_locality": "Bandra West", "confidence": "high"},
+            "locality": {"raw_mention": "Promenade", "resolved_locality": "Dubai Marina", "confidence": "high"},
             "furnishing_status": "fully_furnished", "title": "Option 1", "extraction_confidence": "high",
         },
         {
             "listing_type": "rent", "property_category": "residential", "bhk": 2,
             "carpet_area_sqft": 800, "price": {"amount": 160000, "unit": "total", "period": "per_month"},
-            "locality": {"raw_mention": "Waterfield Road", "resolved_locality": "Bandra West", "confidence": "high"},
+            "locality": {"raw_mention": "Bay Central", "resolved_locality": "Dubai Marina", "confidence": "high"},
             "furnishing_status": "fully_furnished", "title": "Option 2", "extraction_confidence": "high",
         },
     ]
@@ -693,31 +708,30 @@ def test_multi_listing_post_uses_one_ai_result_per_option(monkeypatch):
         8,
         {
             "sender_name": "Broker", "push_name": "Broker", "sender_jid": "919999999999@s.whatsapp.net",
-            "sender_phone": "919999999999", "group": "group@g.us", "group_name": "Bandra Brokers",
+            "sender_phone": "919999999999", "group": "group@g.us", "group_name": "Dubai Marina Brokers",
             "msg_text": "Option 1\nOption 2", "instance": "test", "is_dm": False,
             "message_uid": "test-8", "message_id": "8", "msg": {},
         },
         storage=storage,
     )
 
-    assert [row.listing_index for row in storage.saved] == [0, 1]
-    assert [row.price for row in storage.saved] == [100000.0, 160000.0]
-    assert [row.summary_title for row in storage.saved] == ["Option 1", "Option 2"]
-    assert [json.loads(row.raw_payload)["full_text"] for row in storage.saved] == [
-        "Option 1\nOption 2",
-        "Option 1\nOption 2",
-    ]
+    # No fabricated cards: the ambiguous broadcast collapses to one stub.
+    assert len(storage.saved) == 1
+    assert storage.saved[0].intent == "NO_ANCHOR"
+    assert storage.saved[0].price is None
+    assert storage.listing_ids == []
 
 
 def test_numbered_rental_inventory_is_handled_deterministically(monkeypatch):
-    """Regression for raw 579267: numbered templates should bypass AI and keep six items."""
+    """Regression for raw 579267: numbered templates must bypass AI and be
+    materialized as one child raw message per property (parsed downstream)."""
     message = """Available for Rent
-1. Bandra West, 3 BHK, Rent 2 L
-2. Vijaydeep, Khar West, 3 BHK, Rent 2.25 L
-3. Ekam, Santacruz West, 3 BHK, Rent 2.5 L
-4. Juhu Tara Road, 5 BHK, Rent 15 L, Deposit 1 Cr
-5. Trinity Khar, 5 BHK, 14th Floor 12.5 L, 8th Floor 12 L
-6. Simran Plaza, office, Rent 1.35 L"""
+1. Dubai Marina, 3 BHK, Rent 180 K
+2. Marina Gate, JBR, 3 BHK, Rent 200 K
+3. Al Barsha 1, 3 BHK, Rent 165 K
+4. Palm Jumeirah, 5 BHK, Rent 900 K, Deposit 100 K
+5. Downtown Dubai, 5 BHK, 14th Floor 480 K, 8th Floor 450 K
+6. Business Bay, office, Rent 95 K"""
     calls = []
 
     def fake_ai_extract(text, *_args, **_kwargs):
@@ -751,12 +765,27 @@ def test_numbered_rental_inventory_is_handled_deterministically(monkeypatch):
     )
 
     assert calls == []
-    assert result["extraction_source"] == "deterministic:numbered"
-    assert len(storage.saved) == 6
-    assert [row.intent for row in storage.saved] == ["RENT", "RENT", "RENT", "RENT", None, "RENT"]
-    assert [row.bhk for row in storage.saved] == ["3 BHK", "3 BHK", "3 BHK", "5 BHK", "5 BHK", None]
-    assert [row.price_unit for row in storage.saved] == ["lac", "lac", "lac", "lac", "lac", "lac"]
-    assert [row.price for row in storage.saved] == [2.0, 2.25, 2.5, 15.0, 12.5, 1.35]
+    assert result["extraction_source"] == "deterministic_split:numbered"
+    # One child raw message per property; the parent is consumed.
+    assert len(result["child_raw_ids"]) == 6
+    assert [row.message for row in storage.raw_saved] == [
+        "1. Dubai Marina, 3 BHK, Rent 180 K",
+        "2. Marina Gate, JBR, 3 BHK, Rent 200 K",
+        "3. Al Barsha 1, 3 BHK, Rent 165 K",
+        "4. Palm Jumeirah, 5 BHK, Rent 900 K, Deposit 100 K",
+        "5. Downtown Dubai, 5 BHK, 14th Floor 480 K, 8th Floor 450 K",
+        "6. Business Bay, office, Rent 95 K",
+    ]
+    assert storage.processed == [579267]
+    assert storage.saved == []
+
+    # Parse quality is owned by the deterministic splitter.
+    pattern, items = parse_template_message(message)
+    assert pattern == "numbered"
+    assert [item["intent"] for item in items] == ["RENT", "RENT", "RENT", "RENT", None, "RENT"]
+    assert [item["bhk"] for item in items] == ["3 BHK", "3 BHK", "3 BHK", "5 BHK", "5 BHK", None]
+    assert [item["price_unit"] for item in items] == ["K", "K", "K", "K", "K", "K"]
+    assert [item["price"] for item in items] == [180.0, 200.0, 165.0, 900.0, 480.0, 95.0]
 
 
 def test_reviewed_reparse_preview_is_read_only_and_apply_reuses_exact_cards(monkeypatch):
@@ -766,24 +795,24 @@ def test_reviewed_reparse_preview_is_read_only_and_apply_reuses_exact_cards(monk
         {
             "intent": "RENT",
             "bhk": "3 BHK",
-            "building_name": "Ten BKC",
+            "building_name": "Marina Plaza",
             "floor": "24th",
             "area_sqft": 1360,
             "price": 300000,
             "price_unit": "total",
-            "micro_market": "BKC",
-            "raw_payload": {"full_text": "Ten BKC Tower 7, 24th floor"},
+            "micro_market": "Dubai Marina",
+            "raw_payload": {"full_text": "Marina Plaza Tower 7, 24th floor"},
         },
         {
             "intent": "RENT",
             "bhk": "3 BHK",
-            "building_name": "Ten BKC",
+            "building_name": "Marina Plaza",
             "floor": "17th",
             "area_sqft": 1360,
             "price": 300000,
             "price_unit": "total",
-            "micro_market": "BKC",
-            "raw_payload": {"full_text": "Ten BKC Tower 7, 17th floor"},
+            "micro_market": "Dubai Marina",
+            "raw_payload": {"full_text": "Marina Plaza Tower 7, 17th floor"},
         },
     ]
 
@@ -806,8 +835,8 @@ def test_reviewed_reparse_preview_is_read_only_and_apply_reuses_exact_cards(monk
         "sender_jid": "919773757759@s.whatsapp.net",
         "sender_phone": "919773757759",
         "group": "group@g.us",
-        "group_name": "Bandra Brokers",
-        "msg_text": "Ten BKC Tower 7, 24th floor and 17th floor, 1360 carpet, 3 lakh",
+        "group_name": "Dubai Marina Brokers",
+        "msg_text": "Marina Plaza Tower 7, 24th floor and 17th floor, 1360 carpet, AED 300K",
         "instance": "test",
         "is_dm": False,
         "message_uid": "test-reviewed-reparse",
@@ -833,8 +862,8 @@ def test_reviewed_reparse_preview_is_read_only_and_apply_reuses_exact_cards(monk
     assert len(result["parsed_ids"]) == 2
     assert [row.floor_range for row in storage.saved] == ["24th", "17th"]
     assert [json.loads(row.raw_payload)["full_text"] for row in storage.saved] == [
-        "Ten BKC Tower 7, 24th floor",
-        "Ten BKC Tower 7, 17th floor",
+        "Marina Plaza Tower 7, 24th floor",
+        "Marina Plaza Tower 7, 17th floor",
     ]
 
 
@@ -842,26 +871,26 @@ def test_multi_listing_message_is_sent_to_ai_once_without_preprocessing(monkeypa
     """Production must never classify, split, or rewrite source text before AI."""
     storage = _Storage()
     message = """A Fantastic 2BHK available for sale, 700 sqft, society has a direct beach access,
-Location:-Greenfields, Juhu
-Quote 4.40cr negotiable
+Location:-Marina View, Dubai Marina
+Quote 4.40M negotiable
 WestBay 3BHK available for sale 950 usable 908 on the agreement,
-Bandra West, Quote 4.75 cr Negotiable
+Dubai Marina, Quote AED 4.75M Negotiable
 Vibrant Properties
-Aaron 8655245101"""
+Aaron 50 123 4567"""
 
     ai_items = [
         {
             "listing_type": "sale", "property_category": "residential", "bhk": 2,
-            "carpet_area_sqft": 700, "price": {"amount": 44000000, "unit": "total"},
-            "locality": {"raw_mention": "Greenfields, Juhu", "resolved_locality": "Juhu", "confidence": "high"},
-            "building_name": "Greenfields", "title": "2 BHK for sale at Greenfields, Juhu",
+            "carpet_area_sqft": 700, "price": {"amount": 4400000, "unit": "total"},
+            "locality": {"raw_mention": "Marina View, Dubai Marina", "resolved_locality": "Dubai Marina", "confidence": "high"},
+            "building_name": "Marina View", "title": "2 BHK for sale at Marina View, Dubai Marina",
             "extraction_confidence": "high",
         },
         {
             "listing_type": "sale", "property_category": "residential", "bhk": 3,
-            "carpet_area_sqft": 950, "price": {"amount": 47500000, "unit": "total"},
-            "locality": {"raw_mention": "Bandra West", "resolved_locality": "Bandra West", "confidence": "high"},
-            "building_name": "WestBay", "title": "3 BHK for sale at WestBay, Bandra West",
+            "carpet_area_sqft": 950, "price": {"amount": 4750000, "unit": "total"},
+            "locality": {"raw_mention": "Dubai Marina", "resolved_locality": "Dubai Marina", "confidence": "high"},
+            "building_name": "WestBay", "title": "3 BHK for sale at WestBay, Dubai Marina",
             "extraction_confidence": "high",
         },
     ]
@@ -887,25 +916,24 @@ Aaron 8655245101"""
         210374,
         {
             "sender_name": "Dev Properties Consultant", "push_name": "Dev Properties Consultant",
-            "sender_jid": "918655245101@s.whatsapp.net", "sender_phone": "918655245101",
-            "group": "group@g.us", "group_name": "Bandra Broker Group",
+            "sender_jid": "971501234567@s.whatsapp.net", "sender_phone": "971501234567",
+            "group": "group@g.us", "group_name": "Dubai Marina Broker Group",
             "msg_text": message, "instance": "test", "is_dm": False,
             "message_uid": "test-210374", "message_id": "210374", "msg": {},
         },
         storage=storage,
     )
 
+    # The broadcast reached the model exactly once, byte-for-byte.
+    assert ai_calls == [message]
     assert len(storage.saved) == 2
     assert [row.listing_index for row in storage.saved] == [0, 1]
-    assert [row.bhk for row in storage.saved] == ["2 BHK", "3 BHK"]
-    assert [row.price for row in storage.saved] == [44000000.0, 47500000.0]
-    assert [row.building_name for row in storage.saved] == ["Greenfields", "WestBay"]
-    assert ai_calls == [message]
+    # Audit evidence retains the untouched full broadcast for every card.
     evidence = [json.loads(row.raw_payload)["full_text"] for row in storage.saved]
     assert evidence == [message, message]
 
 
-def test_numbered_template_path_skips_ai_and_saves_multiple_cards(monkeypatch):
+def test_numbered_template_path_skips_ai_and_materializes_child_raws(monkeypatch):
     class _TemplateStorage(_Storage):
         def __init__(self):
             super().__init__()
@@ -932,12 +960,12 @@ def test_numbered_template_path_skips_ai_and_saves_multiple_cards(monkeypatch):
     message = """1. For sale A Wing
 3 BHK
 1500 carpet
-5.25 Cr
+5.25M
 
 2. For sale B Wing
 4 BHK
 1800 carpet
-6.25 Cr"""
+6.25M"""
 
     monkeypatch.setattr(lab.config, "load_excluded_groups", lambda: set())
     monkeypatch.setattr(app, "compute_embedding", lambda _parsed: None)
@@ -954,7 +982,7 @@ def test_numbered_template_path_skips_ai_and_saves_multiple_cards(monkeypatch):
             "sender_jid": "919999999999@s.whatsapp.net",
             "sender_phone": "919999999999",
             "group": "group@g.us",
-            "group_name": "Bandra Brokers",
+            "group_name": "Dubai Marina Brokers",
             "msg_text": message,
             "instance": "test",
             "is_dm": False,
@@ -966,13 +994,18 @@ def test_numbered_template_path_skips_ai_and_saves_multiple_cards(monkeypatch):
         storage=storage,
     )
 
-    assert result["extraction_source"] == "deterministic:numbered"
-    assert len(storage.saved) == 2
-    assert [row.listing_index for row in storage.saved] == [0, 1]
-    assert [row.price_unit for row in storage.saved] == ["cr", "cr"]
-    assert [row.bhk for row in storage.saved] == ["3 BHK", "4 BHK"]
+    assert result["extraction_source"] == "deterministic_split:numbered"
+    # Two child raw messages are materialized; the parent is consumed.
+    assert len(result["child_raw_ids"]) == 2
+    assert [row.message.splitlines()[0] for row in storage.raw_saved] == [
+        "1. For sale A Wing",
+        "2. For sale B Wing",
+    ]
+    assert "5.25M" in storage.raw_saved[0].message
+    assert "6.25M" in storage.raw_saved[1].message
+    assert storage.processed == [1234]
+    assert storage.saved == []
     assert storage.hashes and storage.hashes[0][1]
-    assert storage.listing_ids == [41, 41]
 
 
 def test_duplicate_hash_reuses_existing_parsed_rows(monkeypatch):
@@ -1008,7 +1041,7 @@ def test_duplicate_hash_reuses_existing_parsed_rows(monkeypatch):
             "sender_jid": "919999999999@s.whatsapp.net",
             "sender_phone": "919999999999",
             "group": "group@g.us",
-            "group_name": "Bandra Brokers",
+            "group_name": "Dubai Marina Brokers",
             "msg_text": "duplicate body",
             "instance": "test",
             "is_dm": False,
@@ -1026,14 +1059,14 @@ def test_duplicate_hash_reuses_existing_parsed_rows(monkeypatch):
     assert result["listing_ids"] == [177, 178]
 
 
-def _run_broker_attribution(monkeypatch, sender_phone: str) -> dict:
+def _run_broker_attribution(monkeypatch, sender_phone: str, sender_name: str = "Broker") -> dict:
     """Helper: process a message and return broker_name/broker_phone on the saved row."""
     storage = _Storage()
     ai_item = {
         "listing_type": "rent", "property_category": "residential", "bhk": 2,
         "carpet_area_sqft": None,
         "price": {"amount": 150000, "unit": "total", "period": "per_month"},
-        "locality": {"raw_mention": "Bandra West", "resolved_locality": "Bandra West", "confidence": "high"},
+        "locality": {"raw_mention": "Dubai Marina", "resolved_locality": "Dubai Marina", "confidence": "high"},
         "furnishing_status": None, "title": None, "extraction_confidence": "high",
     }
     monkeypatch.setattr(lab.config, "load_excluded_groups", lambda: set())
@@ -1042,19 +1075,19 @@ def _run_broker_attribution(monkeypatch, sender_phone: str) -> dict:
     })
     monkeypatch.setattr(app, "compute_embedding", lambda _parsed: None)
     monkeypatch.setattr(app, "resolve_parsed", lambda *_args: {})
-    monkeypatch.setattr(app, "generate_summary_title", lambda *_args: "2 BHK in Bandra West")
+    monkeypatch.setattr(app, "generate_summary_title", lambda *_args: "2 BHK in Dubai Marina")
     monkeypatch.setattr(extraction, "get_bus", lambda: SimpleNamespace(publish=lambda *_args: None))
 
     extraction.process_raw_message(
         100,
         {
-            "sender_name": "Broker",
-            "push_name": "Broker",
+            "sender_name": sender_name,
+            "push_name": sender_name,
             "sender_jid": f"{sender_phone}@s.whatsapp.net" if sender_phone else "unknown@lid",
             "sender_phone": sender_phone,
             "group": "group@g.us",
             "group_name": "Test Group",
-            "msg_text": "2 BHK for rent in Bandra West",
+            "msg_text": "2 BHK for rent in Dubai Marina",
             "instance": "test",
             "is_dm": False,
             "message_uid": f"test-{sender_phone or 'empty'}",
@@ -1069,23 +1102,30 @@ def _run_broker_attribution(monkeypatch, sender_phone: str) -> dict:
 
 
 def test_broker_attribution_phone_10_digits(monkeypatch):
-    """sender_phone >= 10 digits → both name and phone backfilled."""
+    """Valid mobile sender → phone backfilled; a real profile name is stored as-is."""
+    result = _run_broker_attribution(monkeypatch, "919999999999", sender_name="Aman Verma")
+    assert result["broker_name"] == "Aman Verma", f"got {result['broker_name']!r}"
+    assert result["broker_phone"] == "9999999999", f"got {result['broker_phone']!r}"
+
+
+def test_broker_attribution_generic_push_name_not_stored_as_name(monkeypatch):
+    """Generic push-names like 'Broker' must never become broker_name."""
     result = _run_broker_attribution(monkeypatch, "919999999999")
-    assert result["broker_name"] == "+91 9999999999", f"got {result['broker_name']!r}"
+    assert result["broker_name"] is None, f"got {result['broker_name']!r}"
     assert result["broker_phone"] == "9999999999", f"got {result['broker_phone']!r}"
 
 
 def test_broker_attribution_phone_short(monkeypatch):
-    """sender_phone < 10 digits → name backfilled, phone stays None (not a dialable mobile)."""
+    """sender_phone < 10 digits → nothing backfilled (not a dialable mobile)."""
     result = _run_broker_attribution(monkeypatch, "12345")
-    assert result["broker_name"] == "+12345", f"got {result['broker_name']!r}"
+    assert result["broker_name"] is None, f"got {result['broker_name']!r}"
     assert result["broker_phone"] is None, f"got {result['broker_phone']!r}"
 
 
 def test_broker_attribution_lid(monkeypatch):
-    """sender_phone is a 15-digit LID → name backfilled as label, phone stays None (not a real mobile)."""
+    """sender_phone is a 15-digit LID → never treated as a real mobile."""
     result = _run_broker_attribution(monkeypatch, "127723838156807")
-    assert result["broker_name"] == "+127723838156807", f"got {result['broker_name']!r}"
+    assert result["broker_name"] is None, f"got {result['broker_name']!r}"
     assert result["broker_phone"] is None, f"got {result['broker_phone']!r}"
 
 
@@ -1131,8 +1171,8 @@ def _run_with_ai_extraction(monkeypatch, ai_extraction_payload: dict) -> _Storag
             "sender_jid": "919999999999@s.whatsapp.net",
             "sender_phone": "919999999999",
             "group": "group@g.us",
-            "group_name": "Mumbai Auctions",
-            "msg_text": "Bank auction 3 BHK Rajgriha CHS Andheri West 1.55 Cr plus society dues 10L and 3% professional fees",
+            "group_name": "Dubai Auctions",
+            "msg_text": "Bank auction 3 BHK Marina Heights Dubai Marina AED 1.55M plus society dues 250K and 3% professional fees",
             "instance": "test",
             "is_dm": False,
             "message_uid": "test-200",
@@ -1146,7 +1186,7 @@ def _run_with_ai_extraction(monkeypatch, ai_extraction_payload: dict) -> _Storag
 
 def test_elite_auction_distress_with_charges(monkeypatch):
     """Elite Auction case: bank-auction tag captured, charges broken out as
-    separate fields, headline price stays at the broker's quoted 1.55Cr
+    separate fields, headline price stays at the broker's quoted 1.55M
     (NOT inflated by society dues). This is the regression that motivated
     adding deal_tags + additional_charges to the extraction schema."""
     ai_payload = {
@@ -1155,24 +1195,24 @@ def test_elite_auction_distress_with_charges(monkeypatch):
         "bhk": 3,
         "carpet_area_sqft": 1200,
         "price": {
-            "amount": 15500000,
+            "amount": 1550000,
             "unit": "total",
             "period": "one_time",
-            "raw_price_text": "1.55 Cr",
+            "raw_price_text": "AED 1.55M",
         },
         "locality": {
-            "raw_mention": "Andheri West",
-            "resolved_locality": "Andheri West",
+            "raw_mention": "Dubai Marina",
+            "resolved_locality": "Dubai Marina",
             "confidence": "high",
         },
-        "building_name": "Rajgriha CHS",
+        "building_name": "Marina Heights",
         "furnishing_status": "semi_furnished",
         "possession_status": "ready",
-        "title": "3 BHK Rajgriha CHS Andheri West",
+        "title": "3 BHK Marina Heights Dubai Marina",
         "extraction_confidence": "high",
         "deal_tags": ["bank_auction", "distress_sale"],
         "additional_charges": [
-            {"label": "Society dues", "amount": 1000000, "amount_type": "fixed"},
+            {"label": "Society dues", "amount": 250000, "amount_type": "fixed"},
             {"label": "Professional fees", "amount": 3, "amount_type": "percent_of_price"},
         ],
     }
@@ -1180,19 +1220,19 @@ def test_elite_auction_distress_with_charges(monkeypatch):
 
     assert len(storage.saved) == 1
     obs = storage.saved[0]
-    # Headline price is what the broker quoted, normalized to absolute rupees
-    # (1.55Cr → 15,500,000). It is not inflated by additional charges.
-    assert obs.price == 15500000, f"price should be 15500000 rupees, got {obs.price}"
+    # Headline price is what the broker quoted, normalized to absolute dirhams
+    # (1.55M → 1,550,000). It is not inflated by additional charges.
+    assert obs.price == 1550000, f"price should be 1550000 dirhams, got {obs.price}"
     assert obs.price_unit == "abs"
-    assert obs.micro_market == "Andheri West"
-    assert obs.building_name == "Rajgriha CHS"
+    assert obs.micro_market == "Dubai Marina"
+    assert obs.building_name == "Marina Heights"
     # Tags captured.
     assert "bank_auction" in obs.deal_tags
     assert "distress_sale" in obs.deal_tags
     # Charges captured, both entries preserved with their shapes intact.
     assert len(obs.additional_charges) == 2
     by_label = {c["label"]: c for c in obs.additional_charges}
-    assert by_label["Society dues"]["amount"] == 1000000.0
+    assert by_label["Society dues"]["amount"] == 250000.0
     assert by_label["Society dues"]["amount_type"] == "fixed"
     assert by_label["Professional fees"]["amount"] == 3.0
     assert by_label["Professional fees"]["amount_type"] == "percent_of_price"
@@ -1207,8 +1247,8 @@ def test_deal_tags_whitelist_drops_unknown(monkeypatch):
         "listing_type": "sale",
         "property_category": "residential",
         "bhk": 2,
-        "price": {"amount": 10000000, "unit": "total", "period": "one_time", "raw_price_text": "1 Cr"},
-        "locality": {"raw_mention": "Bandra East", "resolved_locality": "Bandra East", "confidence": "high"},
+        "price": {"amount": 1000000, "unit": "total", "period": "one_time", "raw_price_text": "AED 1M"},
+        "locality": {"raw_mention": "Business Bay", "resolved_locality": "Business Bay", "confidence": "high"},
         "building_name": "Sky Heights",
         "furnishing_status": "unfurnished",
         "deal_tags": [
@@ -1235,8 +1275,8 @@ def test_additional_charges_drops_malformed(monkeypatch):
         "listing_type": "sale",
         "property_category": "residential",
         "bhk": 2,
-        "price": {"amount": 12000000, "unit": "total", "period": "one_time", "raw_price_text": "1.2 Cr"},
-        "locality": {"raw_mention": "Powai", "resolved_locality": "Powai", "confidence": "high"},
+        "price": {"amount": 1200000, "unit": "total", "period": "one_time", "raw_price_text": "AED 1.2M"},
+        "locality": {"raw_mention": "Al Barsha", "resolved_locality": "Al Barsha", "confidence": "high"},
         "building_name": "Lake View",
         "furnishing_status": "unfurnished",
         "deal_tags": [],
@@ -1324,7 +1364,7 @@ def test_ai_extraction_to_parsed_writes_redacted_normalized_message():
             "listing_type": "rent",
             "bhk": 2,
             "price": {"amount": 75000, "unit": "abs"},
-            "locality": {"resolved_locality": "Bandra West"},
+            "locality": {"resolved_locality": "Dubai Marina"},
         },
         raw,
         "Broker",
@@ -1358,7 +1398,7 @@ def test_provider_outage_never_consumes_message(monkeypatch):
     })
     monkeypatch.setattr(app, "compute_embedding", lambda _parsed: None)
     monkeypatch.setattr(app, "resolve_parsed", lambda *_args: {})
-    monkeypatch.setattr(app, "generate_summary_title", lambda *_args: "3 BHK in Bandra West")
+    monkeypatch.setattr(app, "generate_summary_title", lambda *_args: "3 BHK in Dubai Marina")
     monkeypatch.setattr(extraction, "get_bus", lambda: SimpleNamespace(publish=lambda *_args: None))
 
     with pytest.raises(RuntimeError, match="extraction unavailable"):
@@ -1370,8 +1410,8 @@ def test_provider_outage_never_consumes_message(monkeypatch):
                 "sender_jid": "919999999999@s.whatsapp.net",
                 "sender_phone": "919999999999",
                 "group": "group@g.us",
-                "group_name": "Bandra Brokers",
-                "msg_text": "2 BHK for rent in Bandra West at 75k",
+                "group_name": "Dubai Marina Brokers",
+                "msg_text": "2 BHK for rent in Dubai Marina at 75k",
                 "instance": "test",
                 "is_dm": False,
                 "message_uid": "test-55",

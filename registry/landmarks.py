@@ -32,75 +32,61 @@ BUILDING_LANDMARKS_PATH = os.path.join(DATA_DIR, "building_landmarks.csv")
 
 # ── Seed landmarks ───────────────────────────────────────────────
 # Curated from broker vocabulary — these are the landmarks brokers
-# actually reference in Mumbai real estate.
+# actually reference in Dubai real estate.
 SEED_LANDMARKS = [
-    # ── Bandra West ──────────────────────────────────────────
-    {"name": "Mount Mary Church", "aliases": ["Mount Mary", "Mount Mary Basilica"], "type": "Church", "micro_market": "Bandra West", "lat": 19.0538, "lng": 72.8283, "importance": 90},
-    {"name": "Mehboob Studio", "aliases": ["Mehboob Studios", "Mehboob Khan Studio"], "type": "Studio", "micro_market": "Bandra West", "lat": 19.0550, "lng": 72.8330, "importance": 85},
-    {"name": "Bandra Bandstand", "aliases": ["Bandstand", "Bandra Bandstand Promenade"], "type": "Beachfront", "micro_market": "Bandra West", "lat": 19.0500, "lng": 72.8250, "importance": 80},
-    {"name": "Bandra Fort", "aliases": ["Castella de Aguada"], "type": "Fort", "micro_market": "Bandra West", "lat": 19.0475, "lng": 72.8265, "importance": 70},
-    {"name": "Linking Road", "aliases": ["Linking Rd"], "type": "Road", "micro_market": "Bandra West", "lat": 19.0580, "lng": 72.8370, "importance": 95},
-    {"name": "Hill Road", "aliases": ["Hill Rd"], "type": "Road", "micro_market": "Bandra West", "lat": 19.0530, "lng": 72.8310, "importance": 85},
-    {"name": "Taj Lands End", "aliases": ["Taj Landsend", "Taj Lands End Bandra"], "type": "Hotel", "micro_market": "Bandra West", "lat": 19.0480, "lng": 72.8240, "importance": 75},
-    {"name": "Bandra Station", "aliases": ["Bandra Railway Station", "Bandra Terminus"], "type": "Railway Station", "micro_market": "Bandra West", "lat": 19.0543, "lng": 72.8404, "importance": 90},
-    {"name": "Carter Road", "aliases": ["Carter Rd"], "type": "Road", "micro_market": "Bandra West", "lat": 19.0630, "lng": 72.8220, "importance": 80},
-    # ── BKC ──────────────────────────────────────────────────
-    {"name": "Bandra Kurla Complex", "aliases": ["BKC", "Bandra Kurla Complex"], "type": "Business Park", "micro_market": "BKC", "lat": 19.0600, "lng": 72.8480, "importance": 95},
-    {"name": "Bharat Diamond Bourse", "aliases": ["BDB", "Diamond Bourse"], "type": "Office", "micro_market": "BKC", "lat": 19.0620, "lng": 72.8460, "importance": 80},
-    {"name": "Jio World Centre", "aliases": ["Jio World Drive", "Jio World Garden", "Jio Convention Centre"], "type": "Convention Centre", "micro_market": "BKC", "lat": 19.0585, "lng": 72.8495, "importance": 85},
-    {"name": "NSE (National Stock Exchange)", "aliases": ["NSE BKC", "National Stock Exchange"], "type": "Office", "micro_market": "BKC", "lat": 19.0610, "lng": 72.8500, "importance": 75},
-    # ── Lower Parel / South Mumbai ────────────────────────────
-    {"name": "High Street Phoenix", "aliases": ["Phoenix Marketcity", "Phoenix Mills", "High Street Phoenix Mall"], "type": "Mall", "micro_market": "Lower Parel", "lat": 18.9950, "lng": 72.8230, "importance": 90},
-    {"name": "Lilavati Hospital", "aliases": ["Lilavati", "Lilavati Hospital Bandra"], "type": "Hospital", "micro_market": "Bandra West", "lat": 19.0520, "lng": 72.8340, "importance": 85},
-    {"name": "Siddhivinayak Temple", "aliases": ["Siddhivinayak", "Siddhivinayak Mandir", "Prabhadevi Temple"], "type": "Temple", "micro_market": "Prabhadevi", "lat": 19.0170, "lng": 72.8300, "importance": 85},
-    {"name": "Worli Sea Face", "aliases": ["Worli Seaface", "Worli Seaside"], "type": "Seafront", "micro_market": "Worli", "lat": 19.0080, "lng": 72.8180, "importance": 80},
-    {"name": "Haji Ali Dargah", "aliases": ["Haji Ali", "Haji Ali Masjid"], "type": "Mosque", "micro_market": "Worli", "lat": 18.9830, "lng": 72.8130, "importance": 75},
-    {"name": "Mahalaxmi Racecourse", "aliases": ["Racecourse", "Mahalaxmi Race Course"], "type": "Ground", "micro_market": "Mahalaxmi", "lat": 18.9850, "lng": 72.8250, "importance": 75},
-    {"name": "Pedder Road", "aliases": ["Pedder Rd"], "type": "Road", "micro_market": "Prabhadevi", "lat": 18.9700, "lng": 72.8100, "importance": 70},
-    {"name": "Marine Drive", "aliases": ["Marine Drive", "Queen's Necklace"], "type": "Promenade", "micro_market": "Churchgate", "lat": 18.9440, "lng": 72.8230, "importance": 90},
-    {"name": "Nariman Point", "aliases": ["Nariman Pt"], "type": "Business District", "micro_market": "Churchgate", "lat": 18.9330, "lng": 72.8200, "importance": 85},
-    {"name": "Churchgate Station", "aliases": ["Churchgate"], "type": "Railway Station", "micro_market": "Churchgate", "lat": 18.9350, "lng": 72.8260, "importance": 80},
-    {"name": "Gateway of India", "aliases": ["Gateway"], "type": "Monument", "micro_market": "Colaba", "lat": 18.9220, "lng": 72.8340, "importance": 80},
-    {"name": "Colaba Causeway", "aliases": ["Colaba Causeway"], "type": "Market", "micro_market": "Colaba", "lat": 18.9180, "lng": 72.8310, "importance": 75},
-    {"name": "Oberoi Trident", "aliases": ["Oberoi", "Trident Hotel"], "type": "Hotel", "micro_market": "Colaba", "lat": 18.9280, "lng": 72.8200, "importance": 70},
-    {"name": "Taj Mahal Palace", "aliases": ["Taj Hotel", "Taj Mahal Hotel"], "type": "Hotel", "micro_market": "Colaba", "lat": 18.9220, "lng": 72.8330, "importance": 75},
-    {"name": "Wankhede Stadium", "aliases": ["Wankhede", "Wankhede Stadium"], "type": "Stadium", "micro_market": "Churchgate", "lat": 18.9380, "lng": 72.8270, "importance": 75},
-    # ── Andheri ──────────────────────────────────────────────
-    {"name": "Andheri Station", "aliases": ["Andheri Railway Station", "Andheri Station East", "Andheri Station West"], "type": "Railway Station", "micro_market": "Andheri West", "lat": 19.1190, "lng": 72.8460, "importance": 90},
-    {"name": "Infinity Mall", "aliases": ["Infinity Mall Andheri"], "type": "Mall", "micro_market": "Andheri West", "lat": 19.1250, "lng": 72.8400, "importance": 75},
-    {"name": "DN Nagar Metro", "aliases": ["DN Nagar", "DN Nagar Metro Station"], "type": "Metro Station", "micro_market": "Andheri West", "lat": 19.1230, "lng": 72.8380, "importance": 70},
-    {"name": "Versova Beach", "aliases": ["Versova Beach"], "type": "Beach", "micro_market": "Versova", "lat": 19.1380, "lng": 72.8120, "importance": 75},
-    {"name": "Lokhandwala Complex", "aliases": ["Lokhandwala", "Lokhandwala Market"], "type": "Market", "micro_market": "Andheri West", "lat": 19.1270, "lng": 72.8350, "importance": 80},
-    # ── Juhu / Vile Parle ────────────────────────────────────
-    {"name": "Juhu Beach", "aliases": ["Juhu Beach"], "type": "Beach", "micro_market": "Juhu", "lat": 19.0880, "lng": 72.8260, "importance": 85},
-    {"name": "Prithvi Theatre", "aliases": ["Prithvi", "Prithvi Theatre Juhu"], "type": "Theatre", "micro_market": "Juhu", "lat": 19.1010, "lng": 72.8310, "importance": 70},
-    {"name": "Juhu Circle", "aliases": ["Juhu Circle"], "type": "Junction", "micro_market": "Juhu", "lat": 19.0890, "lng": 72.8290, "importance": 75},
-    {"name": "Vile Parle Station", "aliases": ["Vile Parle Railway Station", "Vile Parle"], "type": "Railway Station", "micro_market": "Vile Parle West", "lat": 19.1000, "lng": 72.8400, "importance": 75},
-    {"name": "ISKCON Temple Juhu", "aliases": ["ISKCON Juhu", "Hare Krishna Temple"], "type": "Temple", "micro_market": "Juhu", "lat": 19.0940, "lng": 72.8300, "importance": 75},
-    # ── Powai ─────────────────────────────────────────────────
-    {"name": "Powai Lake", "aliases": ["Powai Lake"], "type": "Lake", "micro_market": "Powai", "lat": 19.1200, "lng": 72.9050, "importance": 80},
-    {"name": "IIT Bombay", "aliases": ["IIT Powai", "IIT Bombay"], "type": "College", "micro_market": "Powai", "lat": 19.1330, "lng": 72.9150, "importance": 85},
-    {"name": "R City Mall", "aliases": ["R City", "R City Mall Ghatkopar"], "type": "Mall", "micro_market": "Ghatkopar West", "lat": 19.0970, "lng": 72.8970, "importance": 80},
-    {"name": "Hiranandani Gardens", "aliases": ["Hiranandani", "Hiranandani Powai"], "type": "Township", "micro_market": "Powai", "lat": 19.1170, "lng": 72.9100, "importance": 85},
-    # ── Thane ─────────────────────────────────────────────────
-    {"name": "Thane Station", "aliases": ["Thane Railway Station"], "type": "Railway Station", "micro_market": "Thane West", "lat": 19.1800, "lng": 72.9700, "importance": 85},
-    {"name": "Viviana Mall", "aliases": ["Viviana Mall Thane"], "type": "Mall", "micro_market": "Thane West", "lat": 19.2100, "lng": 72.9800, "importance": 80},
-    {"name": "Korum Mall", "aliases": ["Korum Mall Thane"], "type": "Mall", "micro_market": "Thane West", "lat": 19.1950, "lng": 72.9750, "importance": 70},
-    {"name": "Upvan Lake", "aliases": ["Upvan Lake Thane", "Upvan"], "type": "Lake", "micro_market": "Thane West", "lat": 19.1950, "lng": 72.9650, "importance": 65},
-    # ── Navi Mumbai ───────────────────────────────────────────
-    {"name": "Seawoods Grand Central Mall", "aliases": ["Seawoods Mall", "Grand Central Mall"], "type": "Mall", "micro_market": "Navi Mumbai", "lat": 19.0250, "lng": 73.0100, "importance": 75},
-    {"name": "Vashi Station", "aliases": ["Vashi Railway Station"], "type": "Railway Station", "micro_market": "Navi Mumbai", "lat": 19.0700, "lng": 72.9900, "importance": 80},
-    {"name": "Palm Beach Road", "aliases": ["Palm Beach Rd"], "type": "Road", "micro_market": "Navi Mumbai", "lat": 19.0500, "lng": 73.0000, "importance": 75},
-    # ── Extended suburbs ──────────────────────────────────────
-    {"name": "Goregaon Station", "aliases": ["Goregaon Railway Station"], "type": "Railway Station", "micro_market": "Goregaon West", "lat": 19.1650, "lng": 72.8410, "importance": 80},
-    {"name": "Oberoi Mall", "aliases": ["Oberoi Mall Goregaon"], "type": "Mall", "micro_market": "Goregaon East", "lat": 19.1600, "lng": 72.8550, "importance": 80},
-    {"name": "Kandivali Station", "aliases": ["Kandivali Railway Station"], "type": "Railway Station", "micro_market": "Kandivali West", "lat": 19.2040, "lng": 72.8400, "importance": 75},
-    {"name": "Borivali Station", "aliases": ["Borivali Railway Station"], "type": "Railway Station", "micro_market": "Borivali West", "lat": 19.2300, "lng": 72.8560, "importance": 80},
-    {"name": "Yoga Institute", "aliases": ["The Yoga Institute"], "type": "Institute", "micro_market": "Santacruz West", "lat": 19.0800, "lng": 72.8350, "importance": 70},
-    {"name": "Khar Station", "aliases": ["Khar Railway Station"], "type": "Railway Station", "micro_market": "Khar West", "lat": 19.0700, "lng": 72.8370, "importance": 75},
-    {"name": "Santacruz Station", "aliases": ["Santacruz Railway Station"], "type": "Railway Station", "micro_market": "Santacruz West", "lat": 19.0820, "lng": 72.8380, "importance": 75},
-    {"name": "Dadar Station", "aliases": ["Dadar Railway Station", "Dadar"], "type": "Railway Station", "micro_market": "Dadar West", "lat": 19.0180, "lng": 72.8420, "importance": 90},
-    {"name": "Shivaji Park", "aliases": ["Shivaji Park Dadar"], "type": "Ground", "micro_market": "Dadar West", "lat": 19.0230, "lng": 72.8380, "importance": 80},
+    # ── Downtown / Central ───────────────────────────────────
+    {"name": "Burj Khalifa", "aliases": ["Burj", "Tallest Tower"], "type": "Monument", "micro_market": "Downtown Dubai", "lat": 25.1972, "lng": 55.2744, "importance": 95},
+    {"name": "The Dubai Mall", "aliases": ["Dubai Mall", "DM"], "type": "Mall", "micro_market": "Downtown Dubai", "lat": 25.1975, "lng": 55.2796, "importance": 92},
+    {"name": "Dubai Fountain", "aliases": ["The Fountain"], "type": "Attraction", "micro_market": "Downtown Dubai", "lat": 25.1955, "lng": 55.2760, "importance": 85},
+    {"name": "Dubai Opera", "aliases": ["Opera District"], "type": "Theatre", "micro_market": "Downtown Dubai", "lat": 25.1920, "lng": 55.2755, "importance": 80},
+    {"name": "DIFC Gate Avenue", "aliases": ["DIFC", "Gate Avenue", "Dubai International Financial Centre"], "type": "Office", "micro_market": "DIFC", "lat": 25.2138, "lng": 55.2799, "importance": 86},
+    {"name": "Emirates Towers", "aliases": ["Emirates Office Tower", "Jumeirah Emirates Towers"], "type": "Office Tower", "micro_market": "Sheikh Zayed Road", "lat": 25.2168, "lng": 55.2839, "importance": 78},
+    {"name": "Museum of the Future", "aliases": ["MOTF"], "type": "Attraction", "micro_market": "Sheikh Zayed Road", "lat": 25.2197, "lng": 55.2823, "importance": 82},
+    {"name": "Dubai World Trade Centre", "aliases": ["DWTC", "World Trade Centre"], "type": "Exhibition Centre", "micro_market": "Sheikh Zayed Road", "lat": 25.2276, "lng": 55.2900, "importance": 76},
+    {"name": "Dubai Frame", "aliases": ["The Frame"], "type": "Monument", "micro_market": "Za'abeel", "lat": 25.2350, "lng": 55.3004, "importance": 72},
+    {"name": "City Walk", "aliases": ["Citywalk"], "type": "Attraction", "micro_market": "City Walk", "lat": 25.2245, "lng": 55.2875, "importance": 74},
+    {"name": "Safa Park", "aliases": ["Al Safa Park"], "type": "Park", "micro_market": "Al Wasl", "lat": 25.2090, "lng": 55.2560, "importance": 65},
+    # ── Business Bay / Creek ─────────────────────────────────
+    {"name": "Marasi Marina", "aliases": ["Marasi Drive", "Marasi Bay"], "type": "Promenade", "micro_market": "Business Bay", "lat": 25.1810, "lng": 55.2660, "importance": 70},
+    {"name": "Bay Avenue Mall", "aliases": ["Bay Avenue"], "type": "Mall", "micro_market": "Business Bay", "lat": 25.1845, "lng": 55.2700, "importance": 66},
+    {"name": "Dubai Creek Harbour", "aliases": ["Creek Harbour", "Creek Beach"], "type": "Waterfront", "micro_market": "Dubai Creek Harbour", "lat": 25.2020, "lng": 55.3420, "importance": 72},
+    # ── Marina / New Dubai ───────────────────────────────────
+    {"name": "Dubai Marina Walk", "aliases": ["Marina Walk", "Marina Promenade"], "type": "Promenade", "micro_market": "Dubai Marina", "lat": 25.0790, "lng": 55.1400, "importance": 90},
+    {"name": "Dubai Marina Mall", "aliases": ["Marina Mall"], "type": "Mall", "micro_market": "Dubai Marina", "lat": 25.0774, "lng": 55.1359, "importance": 76},
+    {"name": "JBR Beach", "aliases": ["The Beach JBR", "Jumeirah Beach Residence"], "type": "Beach", "micro_market": "JBR", "lat": 25.0777, "lng": 55.1290, "importance": 84},
+    {"name": "Ain Dubai", "aliases": ["Dubai Eye", "Bluewaters Wheel"], "type": "Attraction", "micro_market": "Bluewaters Island", "lat": 25.0787, "lng": 55.1239, "importance": 74},
+    {"name": "Atlantis The Palm", "aliases": ["Atlantis", "Atlantis Palm"], "type": "Hotel", "micro_market": "Palm Jumeirah", "lat": 25.1309, "lng": 55.1171, "importance": 86},
+    {"name": "Nakheel Mall", "aliases": ["Palm Jumeirah Mall", "The View at The Palm"], "type": "Mall", "micro_market": "Palm Jumeirah", "lat": 25.1155, "lng": 55.1310, "importance": 74},
+    {"name": "Palm West Beach", "aliases": ["West Beach"], "type": "Beach", "micro_market": "Palm Jumeirah", "lat": 25.1124, "lng": 55.1337, "importance": 68},
+    {"name": "Ibn Battuta Mall", "aliases": ["Ibn Battuta"], "type": "Mall", "micro_market": "Jebel Ali", "lat": 25.0266, "lng": 55.1141, "importance": 72},
+    {"name": "Expo City Dubai", "aliases": ["Expo 2020 Site", "Expo City"], "type": "Attraction", "micro_market": "Jebel Ali", "lat": 24.9880, "lng": 55.1600, "importance": 66},
+    # ── Jumeirah belt ────────────────────────────────────────
+    {"name": "Burj Al Arab", "aliases": ["Sail of Dubai"], "type": "Hotel", "micro_market": "Umm Suqeim", "lat": 25.1412, "lng": 55.1853, "importance": 85},
+    {"name": "Kite Beach", "aliases": ["Kite Beach Umm Suqeim"], "type": "Beach", "micro_market": "Umm Suqeim", "lat": 25.1559, "lng": 55.2100, "importance": 70},
+    {"name": "Madinat Jumeirah", "aliases": ["Souk Madinat", "Madinat"], "type": "Hotel", "micro_market": "Umm Suqeim", "lat": 25.1340, "lng": 55.1850, "importance": 72},
+    {"name": "La Mer Beach", "aliases": ["La Mer"], "type": "Beach", "micro_market": "Jumeirah", "lat": 25.2580, "lng": 55.2890, "importance": 68},
+    {"name": "Etihad Museum", "aliases": ["Union House"], "type": "Monument", "micro_market": "Jumeirah", "lat": 25.2500, "lng": 55.2840, "importance": 60},
+    {"name": "Dubai Internet City", "aliases": ["DIC"], "type": "Office", "micro_market": "Al Sufouh", "lat": 25.0940, "lng": 55.1610, "importance": 72},
+    {"name": "Knowledge Village", "aliases": ["KV", "Dubai Knowledge Park"], "type": "Institute", "micro_market": "Al Sufouh", "lat": 25.0975, "lng": 55.1615, "importance": 66},
+    # ── Al Barsha / Dubailand corridor ───────────────────────
+    {"name": "Mall of the Emirates", "aliases": ["MOE", "Mall Of Emirates"], "type": "Mall", "micro_market": "Al Barsha", "lat": 25.1181, "lng": 55.2007, "importance": 88},
+    {"name": "Dubai Miracle Garden", "aliases": ["Miracle Garden"], "type": "Attraction", "micro_market": "Arjan", "lat": 25.0600, "lng": 55.2443, "importance": 70},
+    {"name": "Global Village", "aliases": ["GV"], "type": "Attraction", "micro_market": "Dubailand", "lat": 25.0699, "lng": 55.3049, "importance": 72},
+    {"name": "IMG Worlds of Adventure", "aliases": ["IMG Worlds", "IMG"], "type": "Theme Park", "micro_market": "Dubailand", "lat": 25.1010, "lng": 55.3830, "importance": 66},
+    {"name": "Al Barari", "aliases": ["Al Barari Gardens"], "type": "Park", "micro_market": "Al Barari", "lat": 25.0850, "lng": 55.3290, "importance": 58},
+    {"name": "Meydan Racecourse", "aliases": ["Meydan Grandstand", "Dubai World Cup"], "type": "Racecourse", "micro_market": "Meydan", "lat": 25.1990, "lng": 55.3310, "importance": 68},
+    {"name": "Emirates Golf Club", "aliases": ["Emirates Hills Golf", "EGC"], "type": "Golf Club", "micro_market": "The Greens", "lat": 25.0850, "lng": 55.1680, "importance": 64},
+    # ── Airports ─────────────────────────────────────────────
+    {"name": "Dubai International Airport", "aliases": ["DXB", "Dubai Airport"], "type": "Airport", "micro_market": "Al Garhoud", "lat": 25.2532, "lng": 55.3657, "importance": 88},
+    {"name": "Al Maktoum International Airport", "aliases": ["DWC", "Dubai World Central"], "type": "Airport", "micro_market": "Jebel Ali", "lat": 24.9027, "lng": 55.1637, "importance": 68},
+    # ── Old Dubai ────────────────────────────────────────────
+    {"name": "Deira City Centre", "aliases": ["DCC", "City Centre Deira"], "type": "Mall", "micro_market": "Deira", "lat": 25.2520, "lng": 55.3340, "importance": 74},
+    {"name": "Gold Souk", "aliases": ["Deira Gold Souk", "Gold Souq"], "type": "Market", "micro_market": "Deira", "lat": 25.2680, "lng": 55.2970, "importance": 66},
+    {"name": "Al Fahidi Historical District", "aliases": ["Al Fahidi", "Bastakiya"], "type": "Historical District", "micro_market": "Bur Dubai", "lat": 25.2637, "lng": 55.2972, "importance": 62},
+    {"name": "Dubai Festival City Mall", "aliases": ["DFC Mall", "Festival City"], "type": "Mall", "micro_market": "Dubai Festival City", "lat": 25.2305, "lng": 55.3445, "importance": 72},
+    {"name": "Dubai Creek Golf & Yacht Club", "aliases": ["Creek Golf Club"], "type": "Golf Club", "micro_market": "Al Garhoud", "lat": 25.2400, "lng": 55.3400, "importance": 60},
+    {"name": "Mirdif City Centre", "aliases": ["MCC"], "type": "Mall", "micro_market": "Mirdif", "lat": 25.2280, "lng": 55.4060, "importance": 68},
+    {"name": "Dragon Mart", "aliases": ["Dragon Mart 2"], "type": "Mall", "micro_market": "International City", "lat": 25.2040, "lng": 55.4170, "importance": 62},
 ]
 
 
