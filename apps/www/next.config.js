@@ -23,9 +23,16 @@ const nextConfig = {
       },
     ]
   },
-  // Allow www to be served at root, with /localities/[slug] and /buildings/[slug]
+  // Proxy /broker/* to the internal broker dashboard container.
+  // The broker app is a separate Coolify deployment built with
+  // NEXT_PUBLIC_BASE_PATH=/broker, so it expects the /broker prefix.
   async rewrites() {
-    return []
+    return [
+      {
+        source: '/broker/:path*',
+        destination: 'http://muicb57133jqi2aqk5sxsi1m:3000/broker/:path*',
+      },
+    ]
   },
   async headers() {
     return [
