@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { withBasePath } from "@/lib/base-path";
 import { useParams } from "next/navigation";
 import * as api from "@/lib/api";
 import EntityProfileShell from "@/components/EntityProfileShell";
@@ -54,7 +55,7 @@ export default function ClientDetailPage() {
       <div className="min-h-screen bg-[#070b0e] text-white p-6">
         <div className="max-w-3xl mx-auto text-center py-12">
           <div className="text-sm text-zinc-500">Client not found.</div>
-          <a href="/clients" className="text-xs text-[#3EE88A] hover:underline mt-2 inline-block">Back to clients</a>
+          <a href={withBasePath("/clients")} className="text-xs text-[#3EE88A] hover:underline mt-2 inline-block">Back to clients</a>
         </div>
       </div>
     );

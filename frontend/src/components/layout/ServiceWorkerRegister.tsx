@@ -1,4 +1,5 @@
 "use client";
+import { withBasePath } from "@/lib/base-path";
 
 import { useEffect } from "react";
 
@@ -9,7 +10,7 @@ export function ServiceWorkerRegister() {
     void navigator.serviceWorker
       .getRegistrations()
       .then(async (registrations) => {
-        const workerUrl = new URL("/sw.js", window.location.origin).href;
+        const workerUrl = new URL(withBasePath("/sw.js"), window.location.origin).href;
         await Promise.all(
           registrations
             .filter((registration) => {
@@ -19,7 +20,7 @@ export function ServiceWorkerRegister() {
             .map((registration) => registration.unregister())
         );
 
-        const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        const registration = await navigator.serviceWorker.register(withBasePath("/sw.js"), { scope: withBasePath("/") });
         await registration.update().catch(() => undefined);
       })
       .catch((error) => {

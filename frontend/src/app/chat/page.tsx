@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import * as api from "@/lib/api";
+import { withBasePath, apiUrl } from "@/lib/base-path";
 import { getAccessToken } from "@/lib/auth";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
@@ -453,7 +454,7 @@ export default function ChatPage() {
   const activeSessionStorageKey = user?.id ? `propai_active_chat_session:${user.id}` : "";
   const { messages, sendMessage, status, setMessages, error } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/ai/chat",
+      api: apiUrl("/ai/chat"),
       body: () => ({ broker_phone: brokerPhone, session_id: sessionIdRef.current || sessionId, source: searchSource }),
       headers: async () => {
         const headers: Record<string, string> = {};

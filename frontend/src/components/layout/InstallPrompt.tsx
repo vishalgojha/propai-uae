@@ -1,6 +1,7 @@
 "use client";
 
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { withBasePath } from "@/lib/base-path";
 
 export function InstallPrompt() {
   const { show, promptInstall, dismiss, installed } = useInstallPrompt();
@@ -11,7 +12,7 @@ export function InstallPrompt() {
     <div className="fixed bottom-4 left-4 right-4 z-[900] lg:left-4 lg:right-auto lg:w-72 animate-in fade-in">
       <div className="rounded-2xl border border-white/10 bg-black/95 p-3.5 shadow-2xl backdrop-blur">
         <div className="flex items-start gap-3">
-          <img src="/propai-logo.svg" alt="" className="mt-0.5 h-7 w-7 shrink-0" />
+          <img src={withBasePath("//propai-logo.svg")} alt="" className="mt-0.5 h-7 w-7 shrink-0" />
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold text-white">Install PropAI</div>
             <div className="mt-0.5 text-[11px] leading-4 text-zinc-400">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { withBasePath } from "@/lib/base-path";
 import { useParams } from "next/navigation";
 import * as api from "@/lib/api";
 import { cleanGroupName } from "@/lib/whatsapp-display";
@@ -22,7 +23,7 @@ export default function GroupDetailPage() {
       <p className="mt-3 text-sm text-zinc-400">
         Extraction paused — data will resume once the new pipeline is live.
       </p>
-      <a href="/connections" className="mt-6 inline-flex rounded-lg bg-[#3EE88A] px-4 py-2 text-sm font-semibold text-black hover:bg-[#74f0a5]">
+      <a href={withBasePath("/connections")} className="mt-6 inline-flex rounded-lg bg-[#3EE88A] px-4 py-2 text-sm font-semibold text-black hover:bg-[#74f0a5]">
         Manage WhatsApp connections
       </a>
     </div>
@@ -85,7 +86,7 @@ function GroupDetailWorkspacePage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <a href="/audit" className="text-[10px] text-zinc-500 hover:text-white mb-1 block">← WhatsApp Audit</a>
+          <a href={withBasePath("/audit")} className="text-[10px] text-zinc-500 hover:text-white mb-1 block">← WhatsApp Audit</a>
           <h1 className="text-lg font-semibold">{cleanGroupName(group.name)}</h1>
         </div>
         <div className="flex gap-3 items-center">
@@ -246,7 +247,7 @@ function GroupDetailWorkspacePage() {
         <div className="bg-zinc-900 border border-white/10 rounded-xl p-6 text-center">
           <div className="text-sm text-zinc-500">{group.brokers} unique brokers active in this group</div>
           <div className="text-xs text-zinc-500 mt-1">View broker details in the Brokers section</div>
-          <a href="/brokers" className="inline-block mt-3 text-xs text-blue-400 hover:text-blue-300">Go to Brokers →</a>
+          <a href={withBasePath("/brokers")} className="inline-block mt-3 text-xs text-blue-400 hover:text-blue-300">Go to Brokers →</a>
         </div>
       )}
 

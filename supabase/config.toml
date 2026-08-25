@@ -163,6 +163,7 @@ site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = [
   "https://app.propai.live/auth/callback",
   "https://www.propai.live/auth/callback",
+  "https://ae.propai.live/broker/auth/callback",
   "http://127.0.0.1:3000/auth/callback",
   "http://localhost:3000/auth/callback",
 ]

@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { withBasePath } from "@/lib/base-path";
 import Link from "next/link";
 import { ArrowUpRight, CircleDot, RefreshCw, Sparkles, Users } from "lucide-react";
 import * as api from "@/lib/api";
@@ -92,7 +93,7 @@ export default function AuditPage() {
       <p className="mt-3 text-sm text-zinc-400">
         Extraction paused — data will resume once the new pipeline is live.
       </p>
-      <a href="/connections" className="mt-6 inline-flex rounded-lg bg-[#3EE88A] px-4 py-2 text-sm font-semibold text-black hover:bg-[#74f0a5]">
+      <a href={withBasePath("/connections")} className="mt-6 inline-flex rounded-lg bg-[#3EE88A] px-4 py-2 text-sm font-semibold text-black hover:bg-[#74f0a5]">
         Manage WhatsApp connections
       </a>
     </div>

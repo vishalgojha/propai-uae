@@ -175,7 +175,7 @@ export default function SocialFlowPage() {
     setError("");
     try {
       const result = await fetchJSON<{ authorization_url: string }>("/social-flow/meta-mcp/connect", { method: "POST" });
-      if (!authWindow) throw new Error("Please allow pop-ups for app.propai.live to connect Meta in a new tab.");
+      if (!authWindow) throw new Error("Please allow pop-ups for this site to connect Meta in a new tab.");
       authWindow.location.href = result.authorization_url;
     } catch (reason) {
       authWindow?.close();

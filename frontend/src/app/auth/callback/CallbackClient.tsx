@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { withBasePath } from "@/lib/base-path";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
@@ -122,14 +123,14 @@ export function CallbackClient() {
         <p className="mt-2 text-sm text-zinc-500">{message || "An error occurred during authentication"}</p>
         <div className="mt-6 flex gap-3 justify-center">
           <a
-            href="/auth/login"
+            href={withBasePath("/auth/login")}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-400 text-black rounded-lg text-sm font-bold hover:bg-emerald-300 transition-colors"
           >
             <ArrowRight className="w-4 h-4" />
             Try again
           </a>
           <Link
-            href="/"
+            href={withBasePath("/")}
             className="px-4 py-2 border border-white/10 text-zinc-400 rounded-lg text-sm hover:bg-white/5 transition-colors"
           >
             Go home

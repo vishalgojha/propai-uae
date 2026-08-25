@@ -2,7 +2,12 @@ import type { NextConfig } from "next";
 
 const apiBaseUrl = (process.env.LAB_API_BASE_URL || "http://api:8000").replace(/\/$/, "");
 
+// Serve the dashboard under a path prefix (e.g. /broker on ae.propai.live).
+// Empty/unset keeps the current root-served deployment unchanged.
+const basePath = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(/\/$/, "");
+
 const nextConfig: NextConfig = {
+  ...(basePath ? { basePath } : {}),
   typescript: { ignoreBuildErrors: true },
   experimental: {
     // Coolify exposes the host CPU count during Docker builds, so Next would

@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { absoluteUrl } from "@/lib/base-path";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -56,7 +57,7 @@ function SignupContent() {
       await signUp(
         email,
         password,
-        `${window.location.origin}/auth/callback`,
+        absoluteUrl("/auth/callback"),
         fullName,
         workspaceName.trim() || undefined,
         phoneDigits,

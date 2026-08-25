@@ -6,7 +6,9 @@ function patchStudioScript(source: string) {
   return source
     .replace(
       'var baseUrl = (window.location.protocol + "//" + window.location.host).replace(/\\/$/, "");',
-      'var baseUrl = window.location.origin + "/api/social-flow";'
+      process.env.NEXT_PUBLIC_BASE_PATH
+        ? `var baseUrl = window.location.origin + "${process.env.NEXT_PUBLIC_BASE_PATH}/api/social-flow";`
+        : 'var baseUrl = window.location.origin + "/api/social-flow";'
     )
     .replace(
       'headers: options.body ? { "Content-Type": "application/json" } : undefined,',

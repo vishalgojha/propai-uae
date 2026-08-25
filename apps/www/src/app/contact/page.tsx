@@ -15,14 +15,14 @@ const CHANNELS = [
     title: "For brokers — list your inventory",
     body: "Join the network and post listings directly into PropAI from your WhatsApp groups. Free to join.",
     cta: "Get started",
-    href: "https://app.propai.live/auth/signup",
+    href: "/broker/auth/signup",
   },
   {
     icon: Building2,
     title: "For brokers — existing account",
     body: "Already part of the network? Sign in to manage your listings and track what's live.",
     cta: "Broker login",
-    href: "https://app.propai.live/auth/login",
+    href: "/broker/auth/login",
   },
   {
     icon: Mail,

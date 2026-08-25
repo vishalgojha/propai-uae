@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { apiUrl } from "@/lib/base-path";
 import { forceRefreshToken, getAccessToken } from "@/lib/auth";
 
 type EventCallback = (event: { type: string; data: any; timestamp: string }) => void;
@@ -42,7 +43,7 @@ export function useEventStream(handlers: Record<string, EventCallback>) {
           const tenantId = typeof window !== "undefined"
             ? window.localStorage.getItem("propai_active_tenant")
             : null;
-          let response = await fetch("/api/events", {
+          let response = await fetch(apiUrl("/events"), {
             headers: {
               Accept: "text/event-stream",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -54,7 +55,7 @@ export function useEventStream(handlers: Record<string, EventCallback>) {
           if (response.status === 401) {
             token = await forceRefreshToken();
             if (token) {
-              response = await fetch("/api/events", {
+              response = await fetch(apiUrl("/events"), {
                 headers: {
                   Accept: "text/event-stream",
                   Authorization: `Bearer ${token}`,

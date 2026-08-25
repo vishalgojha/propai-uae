@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { withBasePath } from "@/lib/base-path";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import "./globals.css";
@@ -716,7 +717,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
               <div className="text-sm font-semibold text-white">WhatsApp disconnected</div>
               <p className="mt-1 text-xs leading-5 text-zinc-400">New group messages are not being received. Reconnect the linked phone to resume ingestion.</p>
               <div className="mt-3 flex items-center gap-2">
-                <a href="/connections" className="rounded-lg bg-red-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-red-300">Reconnect WhatsApp</a>
+                <a href={withBasePath("/connections")} className="rounded-lg bg-red-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-red-300">Reconnect WhatsApp</a>
                 <button type="button" onClick={() => setDisconnectNoticeOpen(false)} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/5">Dismiss</button>
               </div>
             </div>
@@ -753,7 +754,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <Link href="/" className="px-5 pt-6 pb-5 block">
           <div className="flex items-center gap-2.5">
-            <img src="/propai-logo.svg" alt="PropAI" className="propai-brand-mark w-10 h-10" />
+            <img src={withBasePath("//propai-logo.svg")} alt="PropAI" className="propai-brand-mark w-10 h-10" />
             <div>
               <div className="text-[15px] font-bold text-text-primary tracking-tight leading-none">PropAI</div>
               <div className="text-[9px] text-zinc-400 uppercase tracking-[0.15em] font-medium mt-0.5">Broker OS</div>
@@ -927,7 +928,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <a
-            href="/connections"
+            href={withBasePath("/connections")}
             className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg hover:bg-white/5 transition-colors group"
           >
             {!hasConfiguredWhatsApp ? (
@@ -1008,17 +1009,17 @@ function AppShell({ children }: { children: React.ReactNode }) {
                   Offline
                 </span>
               )}
-              <a href="/connections" className={`propai-status-pill shrink-0 text-[10px] font-semibold transition-colors sm:text-[11px] ${whatsappHealth === "healthy" ? "text-accent hover:text-accent-hover" : whatsappHealth === "error" ? "text-red-300 hover:text-red-200" : "text-amber-300 hover:text-amber-200"}`}>
+              <a href={withBasePath("/connections")} className={`propai-status-pill shrink-0 text-[10px] font-semibold transition-colors sm:text-[11px] ${whatsappHealth === "healthy" ? "text-accent hover:text-accent-hover" : whatsappHealth === "error" ? "text-red-300 hover:text-red-200" : "text-amber-300 hover:text-amber-200"}`}>
                 <span className={`h-1.5 w-1.5 rounded-full lg:h-2 lg:w-2 ${whatsappHealth === "healthy" ? "bg-accent" : whatsappHealth === "error" ? "bg-red-400" : "bg-amber-300"}`} />
                 <span>{whatsappLabel}</span>
               </a>
-              <a href="/connections" className={`propai-status-pill shrink-0 text-[10px] font-semibold transition-colors sm:text-[11px] ${extractionHealthState === "healthy" ? "text-zinc-300 hover:text-white" : extractionHealthState === "warning" ? "text-amber-300 hover:text-amber-200" : "text-zinc-500 hover:text-zinc-300"}`} title={extractionStalled ? "Extraction has pending messages and processed none in the last hour" : undefined}>
+              <a href={withBasePath("/connections")} className={`propai-status-pill shrink-0 text-[10px] font-semibold transition-colors sm:text-[11px] ${extractionHealthState === "healthy" ? "text-zinc-300 hover:text-white" : extractionHealthState === "warning" ? "text-amber-300 hover:text-amber-200" : "text-zinc-500 hover:text-zinc-300"}`} title={extractionStalled ? "Extraction has pending messages and processed none in the last hour" : undefined}>
                 <span className={`h-1.5 w-1.5 rounded-full lg:h-2 lg:w-2 ${extractionHealthState === "healthy" ? "bg-accent" : extractionHealthState === "warning" ? "bg-amber-300" : "bg-zinc-500"}`} />
                 <span>{extractionLabel}</span>
               </a>
               {waConnected && waPhone && (
                 <a
-                  href="/connections"
+                  href={withBasePath("/connections")}
                   className="shrink-0 font-mono text-[9px] text-text-muted transition-colors hover:text-text-primary sm:text-[10px] lg:text-[11px]"
                   title="Manage connected WhatsApp number"
                 >
@@ -1026,7 +1027,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
                 </a>
               )}
               {(wabaConfig?.outbound_allowed || wabaConfig?.shared_waba_number) && (
-                <a href="/waba" className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-accent transition-colors hover:text-accent-hover lg:text-[11px]" title={wabaConfig?.outbound_allowed ? "Workspace WABA connected" : "Message the PropAI assistant on WhatsApp"}>
+                <a href={withBasePath("/waba")} className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-accent transition-colors hover:text-accent-hover lg:text-[11px]" title={wabaConfig?.outbound_allowed ? "Workspace WABA connected" : "Message the PropAI assistant on WhatsApp"}>
                   <span className="h-1.5 w-1.5 rounded-full bg-accent lg:h-2 lg:w-2" />
                   <span>{wabaConfig?.outbound_allowed ? "WABA Connected" : "PropAI WABA"}</span>
                 </a>
@@ -1036,7 +1037,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
               <div className="absolute left-2 right-2 top-12 z-40 rounded-lg border border-border bg-zinc-950 px-3 py-2 text-[10px] text-zinc-400 shadow-xl lg:hidden">
                 <div className="flex items-center justify-between gap-3">
                   <span>{whatsappLabel}</span>
-                  <a href="/connections" className="font-semibold text-accent">Manage</a>
+                  <a href={withBasePath("/connections")} className="font-semibold text-accent">Manage</a>
                 </div>
                 <div className={`mt-1 ${extractionHealthState === "warning" ? "text-amber-300" : "text-zinc-500"}`}>{extractionLabel}</div>
                 {wabaConfig?.outbound_allowed && <div className="mt-1 text-accent">WABA connected</div>}

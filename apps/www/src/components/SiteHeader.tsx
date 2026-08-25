@@ -60,7 +60,7 @@ export default function SiteHeader({ backHref, backLabel }: SiteHeaderProps) {
 
         <div className="hidden lg:flex items-center gap-4">
           <Link
-            href="/contact"
+            href="/broker/auth/login"
             className="text-[15px] text-zinc-400 hover:text-white transition-all duration-base hover:scale-[1.02] active:scale-[0.98]"
           >
             Broker login
@@ -111,7 +111,7 @@ export default function SiteHeader({ backHref, backLabel }: SiteHeaderProps) {
             ))}
             <div className="flex items-center gap-4 pt-4 pb-2">
               <Link
-                href="/contact"
+                href="/broker/auth/login"
                 onClick={() => setOpen(false)}
                 className="text-[15px] text-zinc-400 hover:text-white transition-colors"
               >

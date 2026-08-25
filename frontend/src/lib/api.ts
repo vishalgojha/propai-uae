@@ -1,6 +1,7 @@
 import { getAccessToken, forceRefreshToken } from "@/lib/auth";
+import { apiUrl } from "@/lib/base-path";
 
-const BASE = "/api";
+const BASE = apiUrl("");
 const API_TIMEOUT_MS = 60000;
 const ACTIVE_TENANT_KEY = "propai_active_tenant";
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { withBasePath } from "@/lib/base-path";
 import { Eye, EyeOff, ArrowLeft, ChevronRight, User } from "lucide-react";
 import { fetchJSON } from "@/lib/api";
 
@@ -43,7 +44,7 @@ export default function HiddenBrokersPage() {
       {/* Header */}
       <div className="max-w-3xl mx-auto mb-6">
         <a
-          href="/workspace"
+          href={withBasePath("/workspace")}
           className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-white transition-colors mb-4"
         >
           <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />

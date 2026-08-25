@@ -1,3 +1,4 @@
+import { absoluteUrl } from "@/lib/base-path";
 import { createClient, type SupabaseClient, type User, type Session } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -47,7 +48,7 @@ export async function signInWithMagicLink(email: string, redirectTo?: string) {
   const { data, error } = await getSupabase().auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: redirectTo || `${window.location.origin}/auth/callback`,
+      emailRedirectTo: redirectTo || absoluteUrl("/auth/callback"),
     },
   });
   if (error) throw error;
@@ -66,7 +67,7 @@ export async function signUp(
     email,
     password,
     options: {
-      emailRedirectTo: redirectTo || `${window.location.origin}/auth/callback`,
+      emailRedirectTo: redirectTo || absoluteUrl("/auth/callback"),
       data: {
         ...(fullName ? { full_name: fullName } : {}),
         ...(workspaceName ? { workspace_name: workspaceName } : {}),

@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { absoluteUrl, withBasePath } from "@/lib/base-path";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -34,7 +35,7 @@ function LoginContent() {
         await signInWithEmail(email, password);
       } else {
         localStorage.setItem(AUTH_NEXT_KEY, next);
-        await signInWithMagicLink(email, `${window.location.origin}/auth/callback`);
+        await signInWithMagicLink(email, absoluteUrl("/auth/callback"));
         alert("Magic link sent! Check your email.");
         return;
       }
@@ -59,7 +60,7 @@ function LoginContent() {
       <div className="mx-auto grid min-h-[calc(100dvh-6rem)] w-full max-w-6xl items-center gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(26rem,0.75fr)] lg:gap-20">
         <section className="hidden lg:block">
           <Link href="/" className="inline-flex items-center gap-3">
-            <img src="/propai-logo.svg" alt="" aria-hidden="true" className="h-12 w-12" />
+            <img src={withBasePath("//propai-logo.svg")} alt="" aria-hidden="true" className="h-12 w-12" />
             <span className="text-xl font-bold tracking-tight">Prop<span className="text-[var(--accent-primary)]">AI</span></span>
           </Link>
           <div className="mt-24 max-w-xl">
@@ -90,7 +91,7 @@ function LoginContent() {
         <section className="mx-auto w-full max-w-md">
           <div className="mb-8 text-center lg:text-left">
             <Link href="/" className="mb-6 inline-flex lg:hidden">
-              <img src="/propai-logo.svg" alt="PropAI" className="h-12 w-12" />
+              <img src={withBasePath("//propai-logo.svg")} alt="PropAI" className="h-12 w-12" />
             </Link>
             <h2 className="text-2xl font-bold text-[var(--text-primary)]">Welcome back</h2>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">Sign in to your PropAI workspace</p>

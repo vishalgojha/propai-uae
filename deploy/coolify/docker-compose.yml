@@ -74,6 +74,8 @@ services:
         DOUBLEWORD_API_URL: ${DOUBLEWORD_API_URL}
         DOUBLEWORD_API_KEY: ${DOUBLEWORD_API_KEY}
         DOUBLEWORD_MODEL: ${DOUBLEWORD_MODEL}
+        # Set to /broker when the dashboard is served under ae.propai.live/broker.
+        NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
     environment:
       LAB_API_BASE_URL: http://api:8000
       NODE_ENV: production
