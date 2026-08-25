@@ -23,14 +23,15 @@ const nextConfig = {
       },
     ]
   },
-  // Proxy /broker/* to the internal broker dashboard container.
+  // Proxy /broker/* to the broker dashboard container.
   // The broker app is a separate Coolify deployment built with
   // NEXT_PUBLIC_BASE_PATH=/broker, so it expects the /broker prefix.
+  // Uses the Coolify-assigned URL since containers are on separate Docker networks.
   async rewrites() {
     return [
       {
         source: '/broker/:path*',
-        destination: 'http://muicb57133jqi2aqk5sxsi1m:3000/broker/:path*',
+        destination: 'http://muicb57133jqi2aqk5sxsi1m.62.238.18.85.sslip.io/broker/:path*',
       },
     ]
   },
