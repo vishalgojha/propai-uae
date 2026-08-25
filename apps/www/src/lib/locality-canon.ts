@@ -161,7 +161,7 @@ const STANDALONE_LOCALITIES: Record<string, string> = {
   "dubailand": "Dubailand",
   liwan: "Liwan",
   majan: "Majan",
-  nad al sheba: "Nad Al Sheba",
+  "nad al sheba": "Nad Al Sheba",
   meydan: "Meydan",
   "mbr city": "MBR City",
   reem: "Reem",
