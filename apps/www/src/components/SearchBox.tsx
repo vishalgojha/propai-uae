@@ -171,7 +171,7 @@ export default function SearchBox({
               type="search"
               value={value}
               autoComplete="off"
-              placeholder="e.g. 3 BHK in Bandra West budget 2 to 3 lakh"
+              placeholder="e.g. 2 BHK in Dubai Marina budget 100k to 150k"
               className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] py-4 pl-12 pr-24 text-[15px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-secondary)] focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] sm:py-5 sm:text-[16px] lg:text-[18px]"
               onChange={(e) => {
                 setValue(e.target.value);
@@ -204,7 +204,7 @@ export default function SearchBox({
           </form>
         </div>
         <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)] sm:text-sm">
-          Try a locality, building, broker, BHK, or a full request like “3 BHK in Bandra West budget 2 to 3 lakh”.
+          Try a locality, building, broker, BHK, or a full request like “2 BHK in Dubai Marina budget 100k to 150k”.
         </p>
       </div>
 

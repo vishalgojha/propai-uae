@@ -161,9 +161,11 @@ export type ListingCardViewModel = {
 function normalizeUnit(value: string | null): string | null {
   if (!value) return null;
   const u = value.trim().toLowerCase();
+  // Legacy Indian units still map so old rows/queries keep rendering.
   if (u === "cr" || u === "crore" || u === "crores") return "cr";
   if (u === "lac" || u === "lakh" || u === "lakhs") return "lac";
   if (u === "k" || u === "thousand") return "k";
+  if (u === "m" || u === "mn" || u === "million" || u === "millions") return "m";
   if (u === "abs") return "abs";
   return null;
 }
@@ -195,12 +197,13 @@ export function assetTypeLabel(
 // Renders an explicit, buyer-readable price with a unit. Never a bare number.
 //
 // Ingestion stores prices inconsistently by unit:
-//   - "cr" / "k": the number is ABSOLUTE rupees with a leftover unit
-//     (e.g. 26600000 with unit "cr" => ₹2.66 Cr; 85000 "k" rent => ₹85,000/mo).
-//   - "lac": the number is already in lakh-scale (e.g. 110000 => ₹110,000 Lakh).
-//   - "abs": absolute rupees.
+//   - "abs": absolute AED (the normal case for fresh UAE rows).
+//   - "k" / "m": the number is already in thousands/millions.
+//   - "cr" / "lac": legacy Indian-unit rows kept as a safety net — small
+//     numbers are native-scale ("2.5 cr"), large ones are absolute values
+//     mis-tagged with the unit.
 //   - "psf": price is per-sqft; total = price_per_sqft * area_sqft (unit = abs).
-// We normalise each to a readable, grouped amount in the appropriate unit.
+// We normalise each to a readable, grouped amount in AED.
 export function formatCardPrice(
   price: number | null,
   priceUnit: string | null,
@@ -213,85 +216,71 @@ export function formatCardPrice(
   const unit = normalizeUnit(priceUnit);
   const intentKind = intentValue(intent);
   const perMonth = intentKind === "rent";
-  const grouped = (n: number) => Math.round(n).toLocaleString("en-IN");
+  const grouped = (n: number) => Math.round(n).toLocaleString("en-AE");
   const formatScaled = (amount: number, suffix: string) => {
-    if (amount >= 1_00_00_000) {
-      const cr = amount / 1_00_00_000;
-      return `₹${cr % 1 === 0 ? cr : cr.toFixed(2)} Cr${suffix}`;
+    if (amount >= 1_000_000) {
+      const m = amount / 1_000_000;
+      return `AED ${m % 1 === 0 ? m : m.toFixed(2)}M${suffix}`;
     }
-    if (amount >= 1_00_000) {
-      const lac = amount / 1_00_000;
-      return `₹${lac % 1 === 0 ? lac : lac.toFixed(1)} Lakh${suffix}`;
+    if (amount >= 10_000) {
+      return `AED ${Math.round(amount / 1_000)}k${suffix}`;
     }
-    return `₹${grouped(amount)}${suffix}`;
+    return `AED ${grouped(amount)}${suffix}`;
   };
 
   // If price model is per-sqft and we have area, compute total price
   if (priceModel === "psf" && pricePerSqft != null && areaSqft != null && areaSqft > 0) {
-    const totalPrice = pricePerSqft * areaSqft;
-    // For sale, render as absolute rupees with appropriate unit
-    if (totalPrice >= 1_00_00_000) {
-      const cr = totalPrice / 1_00_00_000;
-      return `₹${cr % 1 === 0 ? cr : cr.toFixed(2)} Cr`;
-    }
-    if (totalPrice >= 1_00_000) {
-      const lac = totalPrice / 1_00_000;
-      return `₹${lac % 1 === 0 ? lac : lac.toFixed(1)} Lakh`;
-    }
-    return `₹${Math.round(totalPrice).toLocaleString("en-IN")}`;
+    return formatScaled(pricePerSqft * areaSqft, "");
   }
 
   if (price == null) return "Price on request";
 
   if (perMonth) {
-    // Rentals are quoted per month. Stored numbers use the natural unit:
-    // "cr" = crores/month, "lac" = lakhs/month, "k" = thousands/month,
-    // "abs" = absolute rupees/month. Multiply up to rupees.
+    // Rentals follow the same storage convention as before: the absolute
+    // number is the monthly figure in AED. "k"/"thousand" = thousands of
+    // AED/month, "m"/"million" = millions of AED/month.
     const rawRent = priceRawText?.match(
-      /(?:rent|lease|monthly|price)\s*[:=-]?[^\d₹]{0,20}(?:₹|rs\.?|inr\s*)?\s*([\d,]+(?:\.\d+)?)\s*(crore|cr|lakh|lac|l|k|thousand)?/i,
+      /(?:rent|lease|monthly|yearly|price)\s*[:=-]?[^\d]{0,20}(?:aed|dhs)?\s*([\d,]+(?:\.\d+)?)\s*(million|m|k|thousand)?/i,
     ) ?? priceRawText?.match(
-      /(?:₹|rs\.?|inr\s*)\s*([\d,]+(?:\.\d+)?)\s*(crore|cr|lakh|lac|l|k|thousand)?/i,
+      /(?:aed|dhs)\s*([\d,]+(?:\.\d+)?)\s*(million|m|k|thousand)?/i,
     );
     if (rawRent) {
       const rawAmount = Number(rawRent[1].replace(/,/g, ""));
       const rawUnit = (rawRent[2] || "").toLowerCase();
-      const rawMultiplier = rawUnit === "crore" || rawUnit === "cr"
-        ? 1_00_00_000
-        : rawUnit === "lakh" || rawUnit === "lac" || rawUnit === "l"
-          ? 1_00_000
-          : rawUnit === "k" || rawUnit === "thousand" ? 1_000 : 1;
+      const rawMultiplier = rawUnit.startsWith("m") ? 1_000_000 : 1_000;
       if (Number.isFinite(rawAmount) && rawAmount > 0) return formatScaled(rawAmount * rawMultiplier, "/month");
     }
 
     let abs = price;
-    if (unit === "cr") abs = price * 1_00_00_000;
-    else if (unit === "lac") abs = price * 1_00_000;
-    else if (unit === "k") abs = price * 1_000;
+    if (unit === "k") abs = price * 1_000;
+    else if (unit === "m") abs = price * 1_000_000;
     else if (unit === "abs" && abs > 0 && abs < 1_000) return "Price on request";
     // Guard against implausible monthly rents (e.g. mis-stored "abs" values
-    // like 12 or 185 rupees). Anything under ₹1,000/month is not a real Mumbai
-    // rent — fall back rather than show a clearly-wrong number.
+    // like 12 or 185 dirhams). Anything under AED 1,000/month is not a real
+    // Dubai rent — fall back rather than show a clearly-wrong number.
     if (abs < 1000) return "Price on request";
     return formatScaled(abs, "/month");
   }
 
   // Sale / commercial
+  // Legacy Indian-unit rows: native-scale small numbers ("2.5 cr") vs
+  // absolute values mis-tagged with the unit ("85000000 cr"). Fresh UAE
+  // ingestion emits abs/k/m, so this is just a safety net.
   if (unit === "cr") {
-    // Most "cr" values are native-scale (2.5 => ₹2.5 Cr); large values are
-    // absolute rupees mis-tagged as crore (85000000 => ₹8.5 Cr).
-    const cr = price > 1000 ? price / 1_00_00_000 : price;
-    return `₹${cr % 1 === 0 ? cr : cr.toFixed(2)} Cr`;
+    return formatScaled(price > 1000 ? price : price * 10_000_000, "");
   }
   if (unit === "lac") {
-    const v = price % 1 === 0 ? price : price.toFixed(1);
-    return `₹${v} Lakh`;
+    return formatScaled(price > 1000 ? price : price * 100_000, "");
   }
   if (unit === "k") {
     const abs = price > 1000 ? price : price * 1_000;
-    return `₹${grouped(abs)}`;
+    return `AED ${grouped(abs)}`;
+  }
+  if (unit === "m") {
+    return `AED ${price % 1 === 0 ? price : price.toFixed(1).replace(/\.0$/, "")}M`;
   }
   // "abs" or unknown — render the grouped whole amount, but scale obvious
-  // outliers into Cr/Lakh so we do not surface raw comma-dumped parser junk.
+  // outliers into M/k so we do not surface raw comma-dumped parser junk.
   return formatScaled(price, "");
 }
 
@@ -513,9 +502,10 @@ export function safeBrokerName(raw: string | null): string | null {
 export function isBrokerContactable(raw: string | null | undefined): boolean {
   if (!raw) return false;
   const digits = String(raw).replace(/\D/g, "");
-  if (digits.length < 10) return false;
-  const local = digits.length > 10 ? digits.slice(-10) : digits;
-  return local.length === 10;
+  // UAE numbers arrive as 971 + 9-digit subscriber (12 digits). Legacy India
+  // rows are 10-digit local or 91 + local (12 digits).
+  if (digits.length >= 11 && digits.length <= 15) return true;
+  return digits.length === 10;
 }
 
 // SEO-friendly slug for the public /listings/[slug]/[id] route. Format:
@@ -603,24 +593,18 @@ export function buildDealTags(raw: string[] | null | undefined): ListingCardView
   return out;
 }
 
-// Compact Indian-currency formatter for additional charge lines: 1000000 → "₹10 Lakh",
-// 3500000 → "₹35 Lakh", 15000000 → "₹1.5 Cr". Mirrors formatCardPrice units but is
-// purely display-side; server stores `amount` as raw INR.
+// Compact AED formatter for additional charge lines: 10000 → "AED 10k",
+// 2500000 → "AED 2.5M". Mirrors formatCardPrice scaling but is purely
+// display-side; server stores `amount` as raw AED.
 function formatChargeAmount(amount: number): string {
-  if (!Number.isFinite(amount) || amount <= 0) return "₹—";
-  if (amount >= 1_00_00_000) {
-    const cr = amount / 1_00_00_000;
-    return `₹${cr % 1 === 0 ? cr.toFixed(0) : cr.toFixed(1)}Cr`;
-  }
-  if (amount >= 1_00_000) {
-    const lac = amount / 1_00_000;
-    return `₹${lac % 1 === 0 ? lac.toFixed(0) : lac.toFixed(1)} Lakh`;
-  }
-  if (amount >= 1_000) {
+  if (!Number.isFinite(amount) || amount <= 0) return "AED —";
+  if (amount >= 10_000) {
+    const m = amount / 1_000_000;
+    if (m >= 1) return `AED ${m % 1 === 0 ? m : m.toFixed(1).replace(/\.0$/, "")}M`;
     const k = amount / 1_000;
-    return `₹${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
+    return `AED ${k % 1 === 0 ? k : k.toFixed(1).replace(/\.0$/, "")}k`;
   }
-  return `₹${amount.toLocaleString("en-IN")}`;
+  return `AED ${amount.toLocaleString("en-US")}`;
 }
 
 export function buildAdditionalCharges(

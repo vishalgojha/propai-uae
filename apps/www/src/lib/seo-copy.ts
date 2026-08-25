@@ -114,7 +114,7 @@ export function localitySegmentDescription(opts: {
   const verb = txn === "rent" ? "for rent" : "for sale";
   const parts: string[] = [];
   parts.push(
-    `Explore ${listingCount.toLocaleString("en-IN")} live ${segmentLabel} listings in ${locality} ${verb}.`,
+    `Explore ${listingCount.toLocaleString("en-AE")} live ${segmentLabel} listings in ${locality} ${verb}.`,
   );
   parts.push("Filter by budget, furnishing and building, then contact the listing broker instantly on WhatsApp.");
   return clip(parts.join(" "), 155);
@@ -139,7 +139,7 @@ export function localityDescription(opts: {
   const { locality, totalListings, buildingCount, saleCount, rentCount, topBhk } = opts;
   const parts: string[] = [];
   parts.push(
-    `Browse ${totalListings.toLocaleString("en-IN")} live ${locality} property listings across ${buildingCount} buildings.`,
+    `Browse ${totalListings.toLocaleString("en-AE")} live ${locality} property listings across ${buildingCount} buildings.`,
   );
   if (saleCount > 0 && rentCount > 0) {
     parts.push(`Includes ${saleCount} for sale and ${rentCount} for rent.`);
@@ -164,7 +164,7 @@ export function buildingDescription(opts: {
   const where = locality ? ` in ${locality}` : "";
   const parts: string[] = [];
   parts.push(
-    `Explore ${listingCount.toLocaleString("en-IN")} live listings at ${name}${where}.`,
+    `Explore ${listingCount.toLocaleString("en-AE")} live listings at ${name}${where}.`,
   );
   if (saleCount > 0 && rentCount > 0) {
     parts.push(`${saleCount} for sale, ${rentCount} for rent.`);
@@ -239,7 +239,7 @@ export function listingDescription(opts: {
 }, maxLength = 320): string {
   const { dealType, title, locality, specRow, sourceMessage, building } = opts;
   const facts = extractListingSourceFacts(sourceMessage, building, locality);
-  const where = locality ? ` in ${locality}` : " in Mumbai";
+  const where = locality ? ` in ${locality}` : " in Dubai";
   const parts: string[] = [];
   const factBhk = facts.bhk ? `${facts.bhk} BHK ` : "";
   const landmark = opts.landmark || facts.landmark;
@@ -252,14 +252,14 @@ export function listingDescription(opts: {
     .filter(Boolean)
     .join("; ");
   if (extras) parts.push(`${extras.charAt(0).toUpperCase()}${extras.slice(1)}.`);
-  parts.push("Listed via Mumbai's live WhatsApp broker network. Contact the broker directly, no lead forms.");
+  parts.push("Listed via Dubai's live WhatsApp broker network. Contact the broker directly, no lead forms.");
   return clip(parts.join(" "), maxLength);
 }
 
 export function searchDescription(query: string): string {
-  const q = query.trim() || "Mumbai";
+  const q = query.trim() || "Dubai";
   return clip(
-    `Explore live ${q} property listings from Mumbai's WhatsApp broker network. Filter by budget, furnishing and building, then contact the listing broker instantly.`,
+    `Explore live ${q} property listings from Dubai's WhatsApp broker network. Filter by budget, furnishing and building, then contact the listing broker instantly.`,
     158,
   );
 }

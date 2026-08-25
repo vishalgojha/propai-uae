@@ -36,14 +36,13 @@ export type PublicListingSummary = {
 };
 
 function priceFromRawText(value: unknown): number | null {
-  const match = String(value ?? "").match(/(?:₹|rs\.?|inr)?\s*(\d[\d,]*(?:\.\d+)?)\s*(cr(?:ore)?|lakh|lac|l|k|thousand)?\b/i);
+  const match = String(value ?? "").match(/(?:aed|dhs|dh\.?)?\s*(\d[\d,]*(?:\.\d+)?)\s*(m(?:illion)?|k|thousand)?\b/i);
   if (!match) return null;
   const amount = Number(match[1].replace(/,/g, ""));
   if (!Number.isFinite(amount) || amount <= 0) return null;
   const unit = (match[2] || "").toLowerCase();
-  const multiplier = unit.startsWith("cr") ? 1_00_00_000
-    : unit === "l" || unit.startsWith("lac") || unit === "lakh" ? 1_00_000
-      : unit === "k" || unit.startsWith("thousand") ? 1_000 : 1;
+  const multiplier = unit.startsWith("m") ? 1_000_000
+    : unit === "k" || unit.startsWith("thousand") ? 1_000 : 1;
   return amount * multiplier;
 }
 
@@ -72,19 +71,18 @@ export type PublicActivityPoint = {
 
 function priceLabel(value: number | null, unit: string | null): string {
   if (value == null || value <= 0) return "Price on request";
-  // The public listings view normalizes prices to absolute rupees and uses
-  // `price_unit = abs`. Older rows may retain `cr`/`lac`, but the numeric value
+  // The public listings view normalizes prices to absolute AED and uses
+  // `price_unit = abs`. Older rows may retain `m`/`k`, but the numeric value
   // is still absolute. Format the amount by scale so the homepage never leaks
-  // grouped rupee values such as ₹4,30,000 instead of ₹4.30 Lakh.
-  if (value >= 1_00_00_000) {
-    const cr = value / 1_00_00_000;
-    return `₹${cr % 1 === 0 ? cr : cr.toFixed(2)} Cr`;
+  // grouped values such as AED 1,430,000 instead of AED 1.43M.
+  if (value >= 1_000_000) {
+    const m = value / 1_000_000;
+    return `AED ${m % 1 === 0 ? m : m.toFixed(2)}M`;
   }
-  if (value >= 1_00_000) {
-    const lakh = value / 1_00_000;
-    return `₹${lakh % 1 === 0 ? lakh : lakh.toFixed(2)} Lakh`;
+  if (value >= 10_000) {
+    return `AED ${Math.round(value / 1_000)}k`;
   }
-  return `₹${Math.round(value).toLocaleString("en-IN")}`;
+  return `AED ${Math.round(value).toLocaleString("en-AE")}`;
 }
 
 export function formatPublicPrice(value: number | null, unit: string | null): string {

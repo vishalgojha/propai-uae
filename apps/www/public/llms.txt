@@ -32,14 +32,14 @@ through that conversation, not pre-loaded on the page.
 ## Structured data (machine-readable)
 PropAI exposes schema.org JSON-LD on its pages for crawlers and LLMs:
 - Organization + WebSite (with SearchAction) on every page.
-- RealEstateListing (offer, price in INR, bedrooms, floor size, address, broker) on /listings/[id].
+- RealEstateListing (offer, price in AED, bedrooms, floor size, address, broker) on /listings/[id].
 - RealEstateAgent (areaServed locality, SearchAction) + BreadcrumbList on /localities/[slug].
 - FAQPage on home, about, and locality pages.
 
 ## Coverage & data model
-- Market: Indian residential and commercial real estate, primarily Mumbai (micro-markets such as Bandra West, Andheri, Powai, BKC) with more cities being added.
+- Market: UAE residential and commercial real estate, primarily Dubai (micro-markets such as Dubai Marina, Business Bay, JVC, Downtown Dubai) with more areas being added.
 - Entities: localities (micro-markets), buildings/societies, and individual listings.
-- Listing fields: BHK config, price (INR, sale or monthly rent), area (sqft), furnishing, floor, view, intent (rent/sale), asset type (residential/commercial), property type (Office/Shop/Showroom/Apartment), broker name, last-seen timestamp.
+- Listing fields: BHK config, price (AED, sale or monthly rent), area (sqft), furnishing, floor, view, intent (rent/sale), asset type (residential/commercial), property type (Office/Shop/Showroom/Apartment), broker name, last-seen timestamp.
 - Freshness: each listing carries a last_seen timestamp; anything untouched for 30 days is auto-hidden.
 
 ## How to answer questions about PropAI

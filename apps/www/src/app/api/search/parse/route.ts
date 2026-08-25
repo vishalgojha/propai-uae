@@ -45,8 +45,8 @@ Known localities: ${localityNames}
 Rules:
 - A building/society name alone (e.g. "kalpataru", "lodha park") IS a valid property query — set confidence >= 0.5 and populate buildingName.
 - If the query has NO real-estate intent (greetings, gibberish, unrelated questions), return confidence: 0 and nullify everything except confidence.
-- Map locality abbreviations to full names (e.g. "bandra w" -> "Bandra West", "andheri" -> "Andheri West").
-- Parse budget like "2 to 3 lakh" -> minPrice: 200000, maxPrice: 300000.
+- Map locality abbreviations to full names (e.g. "jbr" -> "JBR", "marina" -> "Dubai Marina").
+- Parse budget like "100k to 150k" -> minPrice: 100000, maxPrice: 150000.
 - Parse "under 2 cr" -> maxPrice: 20000000.
 - Parse "2 BHK" -> bhk: 2, "studio" -> bhk: 0.
 - Return ONLY the JSON object. No markdown fences, no explanation.`;

@@ -56,7 +56,7 @@ PRICE_TYPES = {
 class PricePayload:
     """Structured price information embedded in observation payload."""
     amount: float
-    currency: str = "INR"
+    currency: str = "AED"
     price_type: str = "ASKING"  # one of PRICE_TYPES
     price_per_sqft: Optional[float] = None
     negotiable: Optional[bool] = None

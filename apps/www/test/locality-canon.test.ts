@@ -5,37 +5,37 @@ function check(input: string, expected: ReturnType<typeof canonicalLocality>) {
   assert.deepEqual(canonicalLocality(input), expected, input);
 }
 
-check("Pali Hill", {
-  label: "Bandra West",
-  slug: "bandra-west",
+check("Jumeirah Beach Residence", {
+  label: "JBR",
+  slug: "jbr",
   public: true,
   standalonePage: true,
 });
 
-check("Mount Mary", {
-  label: "Bandra West",
-  slug: "bandra-west",
+check("JLT", {
+  label: "JLT",
+  slug: "jlt",
   public: true,
   standalonePage: true,
 });
 
-check("Lokhandwala", {
-  label: "Andheri West",
-  slug: "andheri-west",
+check("Nad Al Sheba", {
+  label: "Nad Al Sheba",
+  slug: "nad-al-sheba",
   public: true,
   standalonePage: true,
 });
 
-check("Bandra West to Versova Corridor", {
+check("Dubai Marina to JBR Corridor", {
   label: "",
   slug: "",
   public: false,
   standalonePage: false,
 });
 
-check("Andheri East", {
-  label: "Andheri East",
-  slug: "andheri-east",
+check("Dubai Marina", {
+  label: "Dubai Marina",
+  slug: "dubai-marina",
   public: true,
   standalonePage: true,
 });
@@ -44,10 +44,10 @@ check("Andheri East", {
 // locality as their human-readable labels or every /localities/[slug] page
 // falls through to notFound().
 for (const [label, slug] of [
-  ["Bandra West", "bandra-west"],
-  ["Bandra Kurla Complex", "bandra-kurla-complex"],
-  ["Andheri East", "andheri-east"],
-  ["Vile Parle West", "vile-parle-west"],
+  ["Dubai Marina", "dubai-marina"],
+  ["Palm Jumeirah", "palm-jumeirah"],
+  ["Dubai Hills Estate", "dubai-hills-estate"],
+  ["Al Barsha South", "al-barsha-south"],
 ] as const) {
   check(slug, {
     label,

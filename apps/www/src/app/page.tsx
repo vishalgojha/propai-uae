@@ -124,7 +124,7 @@ export default async function WWWPage() {
                 </p>
                 <div className="mt-9 max-w-2xl">
                   <HomeSearch localities={overview.topLocalities} />
-                  <p className="mt-3 text-sm text-zinc-500">Try “2 BHK in Bandra” or search a locality, building, or budget.</p>
+                  <p className="mt-3 text-sm text-zinc-500">Try “2 BHK in Dubai Marina” or search a locality, building, or budget.</p>
                 </div>
               </div>
 
@@ -153,7 +153,7 @@ export default async function WWWPage() {
                       }) ?? String(row.id);
                       return (
                         <Link key={`${row.card_type ?? "listing"}-${row.id}`} href={`/listings/${slug}/${row.id}`} className="www-market-board-row">
-                          <span className="www-market-board-index">{textValue(row.micro_market) || "Mumbai"}</span>
+                          <span className="www-market-board-index">{textValue(row.micro_market) || "Dubai"}</span>
                           <span className="www-market-board-title">{title}</span>
                           <span className="www-market-board-arrow" aria-hidden="true">↗</span>
                         </Link>
@@ -163,7 +163,7 @@ export default async function WWWPage() {
                 ) : (
                   <div className="www-market-board-empty">Live inventory appears here as broker conversations are indexed.</div>
                 )}
-                <Link href="/market/listings" className="www-market-board-link">Explore live inventory <span aria-hidden="true">→</span></Link>
+                <Link href="/search" className="www-market-board-link">Explore live inventory <span aria-hidden="true">→</span></Link>
               </aside>
             </div>
 
@@ -236,7 +236,7 @@ export default async function WWWPage() {
                 {glanceStats.filter(([, value]) => value > 0).map(([label, value]) => (
                   <div key={label as string} className="rounded-2xl border border-white/10 bg-black/70 p-4" data-scroll-reveal>
                     <div className="text-3xl font-bold text-white">
-                      <CountUp end={value as number} duration={1800} locale="en-IN" />
+                      <CountUp end={value as number} duration={1800} locale="en-AE" />
                     </div>
                     <div className="mt-1 text-[10px] uppercase tracking-wider text-zinc-500">{label as string}</div>
                   </div>
@@ -295,7 +295,7 @@ export default async function WWWPage() {
                     const spec = [row.bhk ? formatBhkNumber(row.bhk) : "", furnishing].filter(Boolean).join(" · ");
                     const lastSeen = row.last_seen ? new Date(row.last_seen) : null;
                     const updatedLabel = lastSeen && !Number.isNaN(lastSeen.getTime())
-                      ? `Updated ${lastSeen.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+                      ? `Updated ${lastSeen.toLocaleDateString("en-AE", { day: "numeric", month: "short" })}`
                       : "Updated recently";
                     return (
                       <Link
@@ -306,7 +306,7 @@ export default async function WWWPage() {
                         <div className="www-listing-primary">
                           <div className="text-sm font-medium text-white line-clamp-2">{title}</div>
                           <div className="mt-1 text-xs text-zinc-500">
-                            {textValue(row.micro_market) || "Mumbai"}{textValue(row.broker_name) ? ` · ${textValue(row.broker_name)}` : ""}
+                            {textValue(row.micro_market) || "Dubai"}{textValue(row.broker_name) ? ` · ${textValue(row.broker_name)}` : ""}
                           </div>
                         </div>
                         <div className="www-listing-price text-sm font-semibold text-green-300">
@@ -468,7 +468,7 @@ function TrustStat({
   return (
     <div className="rounded-2xl border border-white/10 bg-zinc-900/50 p-6 lg:p-8 text-center" data-scroll-reveal>
       <div className="text-3xl lg:text-4xl font-bold text-white leading-none">
-        <CountUp end={value} duration={1800} locale="en-IN" suffix={suffix} />
+        <CountUp end={value} duration={1800} locale="en-AE" suffix={suffix} />
       </div>
       <div className="mt-3 text-xs lg:text-sm text-zinc-400">{label}</div>
     </div>

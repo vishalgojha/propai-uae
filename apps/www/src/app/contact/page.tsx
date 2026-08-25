@@ -43,7 +43,7 @@ export default function ContactPage() {
         </h1>
 
         <p className="text-[15px] lg:text-[17px] text-zinc-400 leading-relaxed mb-10 max-w-2xl">
-          PropAI connects you straight to Mumbai&apos;s brokers — no middleman chatbot.
+          PropAI connects you straight to Dubai&apos;s brokers — no middleman chatbot.
           Pick the channel that fits you below.
         </p>
 

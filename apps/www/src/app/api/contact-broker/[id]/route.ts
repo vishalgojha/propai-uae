@@ -86,9 +86,13 @@ export async function GET(
     return NextResponse.json({ available: false, reason: "no_phone" }, { status: 410 });
   }
 
+  // UAE numbers arrive as 971 + 9-digit subscriber (12 digits) and are dialed
+  // as-is on wa.me. Legacy India rows (10-digit local) keep the 91 prefix.
   const digits = String(data.broker_phone).replace(/\D/g, "");
-  const local = digits.length > 10 ? digits.slice(-10) : digits;
-  if (local.length !== 10) {
+  const dialable = digits.length >= 11 && digits.length <= 15
+    ? digits
+    : digits.length === 10 ? `91${digits}` : null;
+  if (!dialable) {
     return NextResponse.json({ available: false, reason: "bad_phone" }, { status: 410 });
   }
 
@@ -115,7 +119,7 @@ export async function GET(
   });
   const canonicalPath = `/listings/${slug ?? "listing"}/${data.id}`;
 
-  const target = new URL(`https://wa.me/91${local}`);
+  const target = new URL(`https://wa.me/${dialable}`);
   target.searchParams.set("text", buildRecallMessage(data, listingId, canonicalPath));
   return NextResponse.redirect(target, { status: 302 });
 }

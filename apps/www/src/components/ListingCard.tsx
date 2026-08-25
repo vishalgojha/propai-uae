@@ -5,15 +5,14 @@ import { slugify } from "@/lib/supabase";
 
 function formatPrice(value: number | null): string {
   if (value == null) return "Price on request";
-  if (value >= 1_00_00_000) {
-    const cr = value / 1_00_00_000;
-    return `₹${cr % 1 === 0 ? cr : cr.toFixed(1)} Cr`;
+  if (value >= 1_000_000) {
+    const m = value / 1_000_000;
+    return `AED ${m % 1 === 0 ? m : m.toFixed(1)}M`;
   }
-  if (value >= 1_00_000) {
-    const l = value / 1_00_000;
-    return `₹${l % 1 === 0 ? l : l.toFixed(1)} Lakh`;
+  if (value >= 10_000) {
+    return `AED ${Math.round(value / 1_000)}k`;
   }
-  return `₹${value.toLocaleString("en-IN")}`;
+  return `AED ${value.toLocaleString("en-AE")}`;
 }
 
 export default function ListingCard({ building }: { building: BuildingOnMap }) {

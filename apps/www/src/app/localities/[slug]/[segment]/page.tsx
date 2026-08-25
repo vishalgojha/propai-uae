@@ -52,7 +52,9 @@ function decodeSegment(
     const txn: "sale" | "rent" = "sale";
     return {
       filter: { budgetMaxCr: unit === "cr" ? n : n / 100 },
-      label: unit === "cr" ? `under ₹${n} Cr` : `under ₹${n} Lakh`,
+      // Legacy India-unit slugs (`cr`/`lac`) relabelled as AED millions for
+      // the UAE site; the underlying budget filter keeps its old semantics.
+      label: unit === "cr" ? `under AED ${n}M` : `under AED ${(n / 10) % 1 === 0 ? n / 10 : (n / 10).toFixed(1)}M`,
       txn,
     };
   }
@@ -140,7 +142,7 @@ export default async function LocalitySegmentPage({ params, searchParams }: Para
               : `${decoded.label.charAt(0).toUpperCase()}${decoded.label.slice(1)} in ${base.locality}`}
           </h1>
           <p className="text-lg text-zinc-400 max-w-2xl">
-            {cards.length.toLocaleString("en-IN")} live {decoded.label} listings in {base.locality},
+            {cards.length.toLocaleString("en-AE")} live {decoded.label} listings in {base.locality},
             sourced from WhatsApp broker conversations and updated in real time.
           </p>
         </header>

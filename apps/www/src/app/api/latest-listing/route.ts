@@ -55,7 +55,7 @@ const AD_FRAGMENTS = [
   "market pending",
 ];
 
-// Known Mumbai localities — used to extract clean locality from raw text.
+// Known Dubai localities — used to extract clean locality from raw text.
 const KNOWN_LOCALITIES = [
   "bandra west", "bandra east", "bandra kurla complex", "bkc",
   "santacruz west", "santacruz east", "santacruz",

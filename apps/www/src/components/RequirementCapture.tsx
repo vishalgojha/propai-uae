@@ -109,7 +109,7 @@ export default function RequirementCapture({ query }: RequirementCaptureProps) {
             value={details}
             onChange={(event) => setDetails(event.target.value)}
             rows={4}
-            placeholder="3 BHK in Bandra West budget 2 to 3 lakh"
+            placeholder="2 BHK in Dubai Marina budget 120k"
             className="w-full rounded-2xl border border-white/10 bg-black/80 px-4 py-3 text-[15px] text-white placeholder:text-zinc-500 focus:border-green-400 focus:outline-none focus:ring-1 focus:ring-green-400"
           />
         </label>

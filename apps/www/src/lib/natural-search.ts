@@ -73,6 +73,13 @@ export type NaturalSearchState = {
 };
 
 const MONEY_UNITS: Record<string, number> = {
+  m: 1_000_000,
+  mn: 1_000_000,
+  million: 1_000_000,
+  millions: 1_000_000,
+  k: 1_000,
+  thousand: 1_000,
+  // Legacy Indian units kept so old shared queries still parse.
   cr: 1_00_00_000,
   crore: 1_00_00_000,
   crores: 1_00_00_000,
@@ -80,8 +87,6 @@ const MONEY_UNITS: Record<string, number> = {
   lac: 1_00_000,
   lakh: 1_00_000,
   lakhs: 1_00_000,
-  k: 1_000,
-  thousand: 1_000,
 };
 
 const LISTING_FIELDS = [
@@ -194,8 +199,48 @@ function postgrestLikeToken(token: string): string {
 
 // Base locality names recognised when extracting a stated locality from a query
 // (used by detectLocalityStated / extractStatedLocalityPhrase). Mirrors the
-// slang map's expanded forms so "vileparle" -> "vile parle" is caught.
+// slang map's expanded forms so "jumeirah" -> "jumeirah" is caught.
 const BASE_NAMES = new Set([
+  // UAE / Dubai
+  "dubai",
+  "marina",
+  "jbr",
+  "jlt",
+  "jvc",
+  "jvt",
+  "difc",
+  "zaabeel",
+  "deira",
+  "karama",
+  "mirdif",
+  "satwa",
+  "jumeirah",
+  "barsha",
+  "furjan",
+  "remraam",
+  "mudon",
+  "arjan",
+  "liwan",
+  "majan",
+  "meydan",
+  "reem",
+  "warqa",
+  "muhaisnah",
+  "nahda",
+  "business",
+  "downtown",
+  "palm",
+  "sports",
+  "production",
+  "international",
+  "academic",
+  "discovery",
+  "springs",
+  "meadows",
+  "lakes",
+  "views",
+  "greens",
+  // Legacy Indian localities kept so old shared queries still parse
   "bandra",
   "andheri",
   "goregaon",
@@ -255,15 +300,14 @@ function trigramSimilarity(a: string, b: string): number {
 
 function formatPrice(value: number | null): string {
   if (value == null) return "Price on request";
-  if (value >= 1_00_00_000) {
-    const cr = value / 1_00_00_000;
-    return `₹${cr % 1 === 0 ? cr : cr.toFixed(1)} Cr`;
+  if (value >= 1_000_000) {
+    const m = value / 1_000_000;
+    return `AED ${m % 1 === 0 ? m : m.toFixed(1)}M`;
   }
-  if (value >= 1_00_000) {
-    const l = value / 1_00_000;
-    return `₹${l % 1 === 0 ? l : l.toFixed(1)} Lakh`;
+  if (value >= 10_000) {
+    return `AED ${Math.round(value / 1_000)}k`;
   }
-  return `₹${value.toLocaleString("en-IN")}`;
+  return `AED ${Math.round(value).toLocaleString("en-AE")}`;
 }
 
 function moneyValue(amount: string, unit?: string | null): number | null {
@@ -315,10 +359,10 @@ function parseAsset(query: string): "residential" | "commercial" | null {
 
 function parseBudget(query: string): { minPrice: number | null; maxPrice: number | null } {
   const lower = query.toLowerCase();
-  const unitHint = lower.match(/\b(cr|crores?|lacs?|lakhs?|k|thousand)\b/);
+  const unitHint = lower.match(/\b(m|mn|millions?|cr|crores?|lacs?|lakhs?|k|thousand)\b/);
 
   const range = lower.match(
-    /\b(?:budget|between|from|within|under|below|max|upto|up to)?\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(?:-|to|and|–|—)\s*(\d+(?:\.\d+)?)\s*(cr|crore|crores|l|lac|lakh|lakhs|k|thousand)?\b/,
+    /\b(?:budget|between|from|within|under|below|max|upto|up to)?\s*(?:aed|dhs)?\s*(\d+(?:\.\d+)?)\s*(?:-|to|and|–|—)\s*(\d+(?:\.\d+)?)\s*(m|mn|million|millions|cr|crore|crores|l|lac|lakh|lakhs|k|thousand)?\b/,
   );
   if (range) {
     const unit = range[3] || unitHint?.[1] || null;
@@ -328,7 +372,7 @@ function parseBudget(query: string): { minPrice: number | null; maxPrice: number
   }
 
   const under = lower.match(
-    /\b(?:budget|under|below|max|upto|up to|within|less than)\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|crores|l|lac|lakh|lakhs|k|thousand)?\b/,
+    /\b(?:budget|under|below|max|upto|up to|within|less than)\s*(?:aed|dhs)?\s*(\d+(?:\.\d+)?)\s*(m|mn|million|millions|cr|crore|crores|l|lac|lakh|lakhs|k|thousand)?\b/,
   );
   if (under) {
     const unit = under[2] || unitHint?.[1] || null;
@@ -478,11 +522,14 @@ function extractStatedLocalityPhrase(query: string): string | null {
   return null;
 }
 
+// Community abbreviations that must stay fully uppercase ("jvc" -> "JVC").
+const ACRONYMS = new Set(["jbr", "jlt", "jvc", "jvt", "difc", "dip"]);
+
 function titleCase(value: string): string {
   return value
     .split(" ")
     .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .map((w) => (ACRONYMS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(" ");
 }
 

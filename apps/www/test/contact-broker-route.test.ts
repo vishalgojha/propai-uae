@@ -85,7 +85,7 @@ check("valid broker_phone → 302 to wa.me with slug in recall message", () => {
   assert.match(r.redirect, /^https:\/\/wa\.me\/919123456789\?text=/);
   // The recall message is URL-encoded; decode before searching for the slug.
   const text = decodeURIComponent(r.redirect.split("?text=")[1] ?? "");
-  assert.match(text, /\/listings\/3-bhk-andheri-west-319236\/319236/);
+  assert.match(text, /\/listings\/3-bhk-rajgriha-chs-andheri-west-319236\/319236/);
   assert.ok(!text.includes("/listings/319236-"), "should not use bare id even when slug is computed");
 });
 

@@ -15,11 +15,11 @@ export function LocalityFaqJsonLd({ locality, saleCount, rentCount }: FaqProps) 
   const items = [
     {
       question: `Are there properties for sale in ${locality}?`,
-      answer: `Yes. PropAI currently tracks ${saleCount.toLocaleString("en-IN")} live ${locality} listings for sale, sourced directly from WhatsApp broker conversations and updated in real time.`,
+      answer: `Yes. PropAI currently tracks ${saleCount.toLocaleString("en-AE")} live ${locality} listings for sale, sourced directly from WhatsApp broker conversations and updated in real time.`,
     },
     {
       question: `Can I find ${locality} properties on rent?`,
-      answer: `Yes. There are ${rentCount.toLocaleString("en-IN")} ${locality} rental listings live on PropAI right now, ranging from 1 BHK to large apartments and commercial spaces.`,
+      answer: `Yes. There are ${rentCount.toLocaleString("en-AE")} ${locality} rental listings live on PropAI right now, ranging from 1 BHK to large apartments and commercial spaces.`,
     },
     {
       question: `How fresh are ${locality} listings on PropAI?`,

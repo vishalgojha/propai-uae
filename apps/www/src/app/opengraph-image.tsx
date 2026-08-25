@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "PropAI — Real Mumbai listings from broker WhatsApp groups";
+export const alt = "PropAI — Real Dubai listings from broker WhatsApp groups";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -40,7 +40,7 @@ export default function OpengraphImage() {
           </div>
         </div>
         <div style={{ display: "flex", fontSize: 68, fontWeight: 700, color: "#ffffff", lineHeight: 1.1 }}>
-          Mumbai&apos;s freshest property
+          Dubai&apos;s freshest property
         </div>
         <div style={{ display: "flex", fontSize: 68, fontWeight: 700, color: "#6B8E63", lineHeight: 1.1 }}>
           listings, straight from brokers

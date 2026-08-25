@@ -1183,7 +1183,7 @@ def _build_tools(sources, prefer_supabase_agent: bool = False, browser_enabled: 
                         },
                         "canonical_unit": {
                             "type": "string",
-                            "enum": ["L", "Cr", "K", "abs"],
+                            "enum": ["K", "M", "abs"],
                             "description": "What unit this maps to: M=Millions, K=Thousands, abs=Absolute dirhams",
                         },
                     },
@@ -2456,9 +2456,9 @@ def _rest_requirement_search(client, args: dict, tenant_id: str | None = None) -
         price_max = row.get("price_max")
         price_intent = str(row.get("transaction_type") or "RENT").upper()
         if price_min is not None and price_max is not None and float(price_min) != float(price_max):
-            price_formatted = f"{fmt_listing_price(price_min, 'INR', price_intent)} - {fmt_listing_price(price_max, 'INR', price_intent)}"
+            price_formatted = f"{fmt_listing_price(price_min, 'abs', price_intent)} - {fmt_listing_price(price_max, 'abs', price_intent)}"
         else:
-            price_formatted = fmt_listing_price(price_min, "INR", price_intent)
+            price_formatted = fmt_listing_price(price_min, "abs", price_intent)
         results.append({
             "listing_id": None,
             "requirement_id": row.get("id"),
@@ -2470,7 +2470,7 @@ def _rest_requirement_search(client, args: dict, tenant_id: str | None = None) -
             "price": price_min,
             "price_min": price_min,
             "price_max": price_max,
-            "price_unit": "INR",
+            "price_unit": "abs",
             "price_formatted": price_formatted,
             "area_sqft": row.get("area_sqft"),
             "furnishing": None,

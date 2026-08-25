@@ -7,9 +7,9 @@ import { getAllLocalities } from "@/lib/localities";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "About PropAI — Real Listings from Mumbai's Broker WhatsApp Groups",
+  title: "About PropAI — Real Listings from Dubai's Broker WhatsApp Groups",
   description:
-    "Most listings online are old. PropAI reads the WhatsApp groups where Mumbai's brokers actually work, shows how many groups corroborate each listing, and auto-hides anything untouched for 30 days. No stale photos — message the broker for current ones.",
+    "Most listings online are old. PropAI reads the WhatsApp groups where Dubai's brokers actually work, shows how many groups corroborate each listing, and auto-hides anything untouched for 30 days. No stale photos — message the broker for current ones.",
 };
 
 export default async function AboutPage() {
@@ -32,7 +32,7 @@ export default async function AboutPage() {
             already been rented out.
           </p>
           <p>
-            PropAI reads the WhatsApp groups where Mumbai&apos;s brokers actually
+            PropAI reads the WhatsApp groups where Dubai&apos;s brokers actually
             work. Every listing you see here came from a real broker, in a real
             conversation, usually within the last few days. We show you how many
             separate broker groups have mentioned it and when it was last seen —
@@ -86,7 +86,7 @@ function AboutStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-zinc-900/50 p-4 text-center">
       <div className="text-2xl font-bold text-white leading-none">
-        {value.toLocaleString("en-IN")}
+        {value.toLocaleString("en-AE")}
       </div>
       <div className="mt-2 text-xs text-zinc-400">{label}</div>
     </div>

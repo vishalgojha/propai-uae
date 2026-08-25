@@ -5,9 +5,9 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
 export const metadata = {
-  title: "Mumbai Localities with Live Listings | PropAI",
+  title: "Dubai Localities with Live Listings | PropAI",
   description:
-    "Browse every Mumbai locality PropAI tracks — live sale and rental listings sourced directly from WhatsApp broker networks, updated in real time.",
+    "Browse every Dubai locality PropAI tracks — live sale and rental listings sourced directly from WhatsApp broker networks, updated in real time.",
 };
 
 // Locality list changes gradually; ISR caches the page for 5 min so navigation
@@ -25,7 +25,7 @@ export default async function LocalitiesIndexPage() {
       <main className="max-w-[1600px] mx-auto px-4 lg:px-6 py-10 lg:py-14">
           <header className="mb-10">
             <h1 className="text-[32px] lg:text-[44px] leading-[1.1] font-bold text-white mb-3">
-              Mumbai localities with live listings
+              Dubai localities with live listings
             </h1>
             <p className="text-lg text-zinc-400 max-w-2xl">
               {localities.length} localities tracked, with live sale and rental

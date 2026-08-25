@@ -94,7 +94,7 @@ function toCardFields(row: BuildingListing): ListingCardFields {
 function formatDate(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-AE", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function RelatedLinks({
@@ -192,7 +192,7 @@ export default async function BuildingPage({ params }: Params) {
       ? {
           "@type": "PostalAddress",
           streetAddress: building.address,
-          addressLocality: building.microMarket || "Mumbai",
+          addressLocality: building.microMarket || "Dubai",
           addressRegion: "MH",
           addressCountry: "IN",
         }
@@ -220,7 +220,7 @@ export default async function BuildingPage({ params }: Params) {
           <nav className="flex items-center gap-1.5 text-[13px] text-zinc-500 mb-8" aria-label="Breadcrumb">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
             <span>/</span>
-            <Link href="/localities" className="hover:text-white transition-colors">Mumbai</Link>
+            <Link href="/localities" className="hover:text-white transition-colors">Dubai</Link>
             {building.microMarket && (
               <>
                 <span>/</span>
@@ -282,7 +282,7 @@ export default async function BuildingPage({ params }: Params) {
           {/* Stats Row */}
           {stats.listingCount > 0 && (
             <section className="mb-12 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-              <StatBlock label="Total Listings" value={stats.listingCount.toLocaleString("en-IN")} icon={<Building2 className="h-3 w-3" />} />
+              <StatBlock label="Total Listings" value={stats.listingCount.toLocaleString("en-AE")} icon={<Building2 className="h-3 w-3" />} />
               <StatBlock label="Avg Rent" value={stats.avgRent} icon={<TrendingUp className="h-3 w-3" />} />
               <StatBlock label="Avg Sale Price" value={stats.avgSalePrice} icon={<TrendingUp className="h-3 w-3" />} />
               <StatBlock label="BHK Range" value={stats.bhkRange} icon={<Building2 className="h-3 w-3" />} />
@@ -383,7 +383,7 @@ export default async function BuildingPage({ params }: Params) {
                 href={`/localities/${slugify(building.microMarket)}`}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm text-zinc-300 hover:border-green-400/30 hover:text-green-200 hover:bg-green-400/5 transition-all group"
               >
-                View all {localityCount.toLocaleString("en-IN")} listings in {building.microMarket}
+                View all {localityCount.toLocaleString("en-AE")} listings in {building.microMarket}
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </section>
@@ -469,8 +469,7 @@ export default async function BuildingPage({ params }: Params) {
 }
 
 function formatPrice(price: number): string {
-  if (price >= 1_00_00_000) return `₹${(price / 1_00_00_000).toFixed(1).replace(/\.0$/, "")} Cr`;
-  if (price >= 1_00_000) return `₹${(price / 1_00_000).toFixed(1).replace(/\.0$/, "")} Lakh`;
-  if (price >= 1_000) return `₹${(price / 1_000).toFixed(0)}K`;
-  return `₹${price.toLocaleString("en-IN")}`;
+  if (price >= 1_000_000) return `AED ${(price / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (price >= 10_000) return `AED ${Math.round(price / 1000)}k`;
+  return `AED ${Math.round(price).toLocaleString("en-AE")}`;
 }

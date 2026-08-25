@@ -8,7 +8,7 @@ Design principles:
   - No computed metrics are persisted (no pre-aggregation)
   - Every query is a temporal slice (time range is always required)
   - Results are cached per-query, never pre-computed
-  - All prices are in INR, all areas in sqft
+  - All prices are in AED, all areas in sqft
 
 Intelligence metrics (ordered by implementation priority):
 

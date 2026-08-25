@@ -31,7 +31,7 @@ export default function SiteFooter() {
             </Link>
             <p className="text-[15px] text-zinc-500 max-w-xs">
               PropAI reads WhatsApp broker groups so you get real, fresh
-              Mumbai listings — and a direct line to the broker.
+              Dubai listings — and a direct line to the broker.
             </p>
           </div>
           <nav aria-label="Browse">
@@ -72,8 +72,8 @@ export default function SiteFooter() {
           </nav>
         </div>
         <div className="border-t border-white/[0.06] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600">
-          <p>© {new Date().getFullYear()} PropAI. Listings sourced from Mumbai broker WhatsApp networks.</p>
-          <p>Mumbai&apos;s freshest property inventory, directly from brokers.</p>
+          <p>© {new Date().getFullYear()} PropAI. Listings sourced from Dubai broker WhatsApp networks.</p>
+          <p>Dubai&apos;s freshest property inventory, directly from brokers.</p>
         </div>
       </div>
     </footer>

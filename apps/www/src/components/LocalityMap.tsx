@@ -11,11 +11,9 @@ const containerStyle = { width: "100%", height: "100%" };
 function formatPrice(value: number | null, unit?: string | null): string {
   if (value == null) return "—";
   const u = (unit || "").toLowerCase();
-  if (u === "cr" || u === "crore") return `₹${value % 1 === 0 ? value : value.toFixed(2)} Cr`;
-  if (u === "lac" || u === "lakh") return `₹${value % 1 === 0 ? value : value.toFixed(1)} Lakh`;
-  if (u === "k" || u === "thousand") return `₹${Math.round(value).toLocaleString("en-IN")}K`;
-  if (u === "abs") return `₹${Math.round(value).toLocaleString("en-IN")}`;
-  return `₹${value.toLocaleString("en-IN")}`;
+  if (u === "m" || u === "million") return `AED ${value % 1 === 0 ? value : value.toFixed(2)}M`;
+  if (u === "k" || u === "thousand") return `AED ${Math.round(value)}k`;
+  return `AED ${Math.round(value).toLocaleString("en-AE")}`;
 }
 
 export default function LocalityMap({ locality, buildings, apiKey }: Props) {

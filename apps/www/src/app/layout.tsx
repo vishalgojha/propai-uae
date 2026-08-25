@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     title: 'PropAI — Find Property Through Verified Brokers',
     description: 'Search verified residential and commercial property listings from WhatsApp broker networks.',
     type: 'website',
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'PropAI — Mumbai property listings from brokers' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'PropAI — Dubai property listings from brokers' }],
   },
   twitter: {
     card: 'summary_large_image',

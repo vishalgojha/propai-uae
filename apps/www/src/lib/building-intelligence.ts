@@ -45,19 +45,21 @@ function parseBhk(bhk: string | null): number | null {
   return m ? parseInt(m[1]) : null;
 }
 
-function priceToINR(price: number, unit: string | null): number {
+function priceToAED(price: number, unit: string | null): number {
   const u = (unit || "").toLowerCase();
-  if (u.includes("cr") || u.includes("crore")) return price * 1_00_00_000;
-  if (u.includes("lac") || u.includes("lakh")) return price * 1_00_000;
-  if (u.includes("k")) return price * 1_000;
+  if (u === "m" || u === "mn" || u.includes("million")) return price * 1_000_000;
+  if (u === "k" || u.includes("thousand")) return price * 1_000;
+  // Legacy Indian-unit rows kept as a safety net; fresh ingestion emits abs/k/m.
+  if (u.includes("cr") || u.includes("crore")) return price * 10_000_000;
+  if (u.includes("lac") || u.includes("lakh")) return price * 100_000;
   return price;
 }
 
-function formatINR(val: number): string {
-  if (val >= 1_00_00_000) return `₹${(val / 1_00_00_000).toFixed(1).replace(/\.0$/, "")} Cr`;
-  if (val >= 1_00_000) return `₹${(val / 1_00_000).toFixed(1).replace(/\.0$/, "")} Lakh`;
-  if (val >= 1_000) return `₹${(val / 1_000).toFixed(0)}K`;
-  return `₹${val.toLocaleString("en-IN")}`;
+// Formats AED amounts (name kept from the India build for call-site stability).
+function formatAED(val: number): string {
+  if (val >= 1_000_000) return `AED ${(val / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (val >= 10_000) return `AED ${Math.round(val / 1000)}k`;
+  return `AED ${Math.round(val).toLocaleString("en-AE")}`;
 }
 
 // ── Hero Stats ────────────────────────────────────────────────────
@@ -79,16 +81,16 @@ export function computeHeroStats(listings: BuildingListing[]): BuildingHeroStats
 
   const avgRent =
     rentListings.length > 0
-      ? formatINR(
-          rentListings.reduce((s, l) => s + priceToINR(l.price!, l.price_unit), 0) /
+      ? formatAED(
+          rentListings.reduce((s, l) => s + priceToAED(l.price!, l.price_unit), 0) /
             rentListings.length,
         ) + "/month"
       : null;
 
   const avgSalePrice =
     saleListings.length > 0
-      ? formatINR(
-          saleListings.reduce((s, l) => s + priceToINR(l.price!, l.price_unit), 0) /
+      ? formatAED(
+          saleListings.reduce((s, l) => s + priceToAED(l.price!, l.price_unit), 0) /
             saleListings.length,
         )
       : null;
@@ -106,7 +108,7 @@ export function computeHeroStats(listings: BuildingListing[]): BuildingHeroStats
     .filter((p): p is number => typeof p === "number" && p > 0);
   const avgPricePerSqft =
     pricesPerSqft.length > 0
-      ? `₹${Math.round(pricesPerSqft.reduce((s, p) => s + p, 0) / pricesPerSqft.length).toLocaleString("en-IN")}/sqft`
+      ? `AED ${Math.round(pricesPerSqft.reduce((s, p) => s + p, 0) / pricesPerSqft.length).toLocaleString("en-AE")}/sqft`
       : null;
 
   let lastUpdated: string | null = null;
@@ -195,7 +197,7 @@ export async function getSimilarBuildings(
 
   const buildingStats = new Map<
     string,
-    { count: number; totalPrice: number; totalInr: number; unit: string | null }
+    { count: number; totalPrice: number; totalAed: number; unit: string | null }
   >();
   const currentKey = buildingName.trim().toLowerCase().replace(/\s+/g, " ");
   for (const row of data) {
@@ -203,11 +205,11 @@ export async function getSimilarBuildings(
     if (!bn) continue;
     const canonicalName = canonicalNames.get(bn.toLowerCase().replace(/\s+/g, " "));
     if (!canonicalName || canonicalName.toLowerCase().replace(/\s+/g, " ") === currentKey) continue;
-    const existing = buildingStats.get(canonicalName) || { count: 0, totalPrice: 0, totalInr: 0, unit: null };
+    const existing = buildingStats.get(canonicalName) || { count: 0, totalPrice: 0, totalAed: 0, unit: null };
     existing.count += 1;
     if (row.price && typeof row.price === "number") {
       existing.totalPrice += row.price;
-      existing.totalInr += priceToINR(row.price, row.price_unit);
+      existing.totalAed += priceToAED(row.price, row.price_unit);
       existing.unit = row.price_unit;
     }
     buildingStats.set(canonicalName, existing);
@@ -366,29 +368,29 @@ export function computeMarketInsights(
 
   const insights: MarketInsight[] = [];
 
-  insights.push({ label: "Total Listings", value: listings.length.toLocaleString("en-IN") });
+  insights.push({ label: "Total Listings", value: listings.length.toLocaleString("en-AE") });
 
   const rentCount = listings.filter((l) => intentSlug(l.intent) === "rent").length;
   const saleCount = listings.filter((l) => intentSlug(l.intent) === "sale").length;
-  if (rentCount > 0) insights.push({ label: "Rental Listings", value: rentCount.toLocaleString("en-IN") });
-  if (saleCount > 0) insights.push({ label: "Sale Listings", value: saleCount.toLocaleString("en-IN") });
+  if (rentCount > 0) insights.push({ label: "Rental Listings", value: rentCount.toLocaleString("en-AE") });
+  if (saleCount > 0) insights.push({ label: "Sale Listings", value: saleCount.toLocaleString("en-AE") });
 
   // Average rent
   const rentPrices = listings
     .filter((l) => intentSlug(l.intent) === "rent" && l.price)
-    .map((l) => priceToINR(l.price!, l.price_unit));
+    .map((l) => priceToAED(l.price!, l.price_unit));
   if (rentPrices.length > 0) {
     const avg = rentPrices.reduce((s, p) => s + p, 0) / rentPrices.length;
-    insights.push({ label: "Avg Rent", value: formatINR(avg) + "/month" });
+    insights.push({ label: "Avg Rent", value: formatAED(avg) + "/month" });
   }
 
   // Average sale price
   const salePrices = listings
     .filter((l) => intentSlug(l.intent) === "sale" && l.price)
-    .map((l) => priceToINR(l.price!, l.price_unit));
+    .map((l) => priceToAED(l.price!, l.price_unit));
   if (salePrices.length > 0) {
     const avg = salePrices.reduce((s, p) => s + p, 0) / salePrices.length;
-    insights.push({ label: "Avg Sale Price", value: formatINR(avg) });
+    insights.push({ label: "Avg Sale Price", value: formatAED(avg) });
   }
 
   // Most common BHK
@@ -407,7 +409,7 @@ export function computeMarketInsights(
     .filter((p): p is number => typeof p === "number" && p > 0);
   if (ppsf.length > 0) {
     const avg = Math.round(ppsf.reduce((s, p) => s + p, 0) / ppsf.length);
-    insights.push({ label: "Avg Price/sqft", value: `₹${avg.toLocaleString("en-IN")}` });
+    insights.push({ label: "Avg Price/sqft", value: `AED ${avg.toLocaleString("en-AE")}` });
   }
 
   // Recently added (last 7 days)
@@ -417,13 +419,13 @@ export function computeMarketInsights(
     return new Date(l.last_seen).getTime() > sevenDaysAgo;
   });
   if (recent.length > 0) {
-    insights.push({ label: "Added This Week", value: recent.length.toLocaleString("en-IN") });
+    insights.push({ label: "Added This Week", value: recent.length.toLocaleString("en-AE") });
   }
 
   // Unique brokers
   const brokers = new Set(listings.map((l) => l.broker_name).filter(Boolean));
   if (brokers.size > 0) {
-    insights.push({ label: "Active Brokers", value: brokers.size.toLocaleString("en-IN") });
+    insights.push({ label: "Active Brokers", value: brokers.size.toLocaleString("en-AE") });
   }
 
   return insights;

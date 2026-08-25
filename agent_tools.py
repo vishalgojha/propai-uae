@@ -137,7 +137,7 @@ TOOL_DEFINITIONS = [
             "price": {"type": "number"},
             "budget_min": {"type": "number"},
             "budget_max": {"type": "number"},
-            "price_unit": {"type": "string", "enum": ["abs", "per_sqft", "L", "Cr", "K"]},
+            "price_unit": {"type": "string", "enum": ["abs", "per_sqft", "K", "M"]},
             "area_sqft": {"type": "number"},
             "furnishing": {"type": "string"},
             "summary_title": {"type": "string"},

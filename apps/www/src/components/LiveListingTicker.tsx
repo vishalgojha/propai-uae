@@ -36,10 +36,11 @@ function timeAgo(iso: string | null, now: number): string {
 function priceLabel(price: number | null, unit: string | null): string | null {
   if (price == null) return null;
   const u = String(unit || "").toLowerCase();
-  if (u.includes("cr") || u.includes("crore")) return `₹${(price).toLocaleString("en-IN")} Cr`;
-  if (u.includes("lac") || u.includes("lakh")) return `₹${price.toLocaleString("en-IN")} Lakh`;
-  if (u.includes("k") || u.includes("thousand")) return `₹${price.toLocaleString("en-IN")}k`;
-  return `₹${price.toLocaleString("en-IN")}`;
+  if (u.includes("m") || u.includes("million")) return `AED ${price.toLocaleString("en-AE")}M`;
+  if (u.includes("cr") || u.includes("crore")) return `AED ${price.toLocaleString("en-AE")} Cr`;
+  if (u.includes("lac") || u.includes("lakh")) return `AED ${price.toLocaleString("en-AE")} Lakh`;
+  if (u.includes("k") || u.includes("thousand")) return `AED ${price.toLocaleString("en-AE")}k`;
+  return `AED ${price.toLocaleString("en-AE")}`;
 }
 
 export default function LiveListingTicker() {

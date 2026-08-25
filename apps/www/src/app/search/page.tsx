@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Search Listings — PropAI",
   description:
-    "Search live WhatsApp broker listings in plain English. Try queries like '3 BHK in Bandra West budget 2 to 3 lakh'.",
+    "Search live WhatsApp broker listings in plain English. Try queries like '3 BHK in Dubai Marina budget 100k to 150k'.",
   robots: NOINDEX,
   alternates: {
     canonical: "/search",
@@ -120,10 +120,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
             <>
               <div className="mt-8 flex flex-wrap gap-2">
                 {[
-                  "3 BHK in Bandra West budget 2 to 3 lakh",
-                  "2 BHK in Andheri West under 2 lakh",
-                  "Fully furnished rental in Powai",
-                  "Offices in BKC",
+                  "3 BHK in Dubai Marina budget 100k to 150k",
+                  "2 BHK in JVC under AED 80k",
+                  "Fully furnished rental in Business Bay",
+                  "Offices in Business Bay",
                 ].map((example) => (
                   <Link
                     key={example}
@@ -139,8 +139,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
                 <h2 className="text-sm font-semibold text-white mb-3">Search tips</h2>
                 <ul className="grid gap-2 text-sm text-zinc-400 sm:grid-cols-2">
                   <li>• Type the way you&apos;d ask a broker — plain English works.</li>
-                  <li>• Add a locality: &ldquo;in Bandra West&rdquo;, &ldquo;near Andheri&rdquo;.</li>
-                  <li>• Set a budget: &ldquo;budget 2 to 3 lakh&rdquo; or &ldquo;under 2 lakh&rdquo;.</li>
+                  <li>• Add a locality: &ldquo;in Dubai Marina&rdquo;, &ldquo;near JLT&rdquo;.</li>
+                  <li>• Set a budget: &ldquo;budget 100k to 150k&rdquo; or &ldquo;under AED 2M&rdquo;.</li>
                   <li>• Specify config: &ldquo;2 BHK&rdquo;, &ldquo;3 BHK furnished&rdquo;.</li>
                   <li>• Pick residential or commercial from the toggle above.</li>
                   <li>• Stuck? Try a building or society name directly.</li>
@@ -176,10 +176,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {[
-                        "3 BHK in Bandra West under 2 Cr",
-                        "2 BHK for rent in Andheri West",
-                        "Furnished flat in Powai budget 1 to 2 lakh",
-                        "Office space in BKC",
+                        "3 BHK in Dubai Marina under AED 2M",
+                        "2 BHK for rent in JVC",
+                        "Furnished apartment in Business Bay budget 80k to 120k",
+                        "Office space in Business Bay",
                       ].map((example) => (
                         <Link
                           key={example}
@@ -314,10 +314,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
               <h2 className="text-xl font-semibold text-white mb-3">What you can ask for</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-zinc-300">
                 {[
-                  "3 BHK in Bandra West budget 2 to 3 lakh",
-                  "2 BHK rental in Powai fully furnished",
-                  "Office in BKC under 5 crore",
-                  "Listings near Andheri West with 2 bathrooms",
+                  "3 BHK in Dubai Marina budget 100k to 150k",
+                  "2 BHK rental in Business Bay fully furnished",
+                  "Office in Business Bay under 5M",
+                  "Listings near JLT West with 2 bathrooms",
                 ].map((example) => (
                   <div key={example} className="rounded-2xl border border-white/10 bg-black/70 px-4 py-3">
                     {example}

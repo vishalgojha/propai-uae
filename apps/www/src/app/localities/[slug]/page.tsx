@@ -144,7 +144,7 @@ export default async function LocalityPage({ params }: Params) {
             {data.locality}
           </h1>
           <p className="text-lg text-zinc-400 max-w-2xl">
-            {data.totalListings.toLocaleString("en-IN")} live {data.locality} listings
+            {data.totalListings.toLocaleString("en-AE")} live {data.locality} listings
             {data.buildings.length ? ` across ${data.buildings.length} buildings` : ""},
             sourced from WhatsApp broker conversations and updated in real time.
           </p>
@@ -253,7 +253,7 @@ function TrustStat({ label, value }: { label: string; value: number | string }) 
   return (
     <div className="rounded-xl border border-white/10 bg-zinc-900/50 px-4 py-3">
       <div className="text-[20px] lg:text-[22px] font-semibold text-white leading-none">
-        {typeof value === "number" ? value.toLocaleString("en-IN") : value}
+        {typeof value === "number" ? value.toLocaleString("en-AE") : value}
       </div>
       <div className="mt-1 text-xs text-zinc-400">{label}</div>
     </div>

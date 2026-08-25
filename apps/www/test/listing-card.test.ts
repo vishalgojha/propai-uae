@@ -15,8 +15,8 @@ function base(over: Partial<ListingCardFields>): ListingCardFields {
   return {
     id: 1,
     bhk: "3 BHK",
-    price: 2.5,
-    price_unit: "cr",
+    price: 1_500_000,
+    price_unit: "abs",
     price_model: null,
     price_per_sqft: null,
     area_sqft: 1450,
@@ -24,7 +24,7 @@ function base(over: Partial<ListingCardFields>): ListingCardFields {
     intent: "sell",
     asset_type: null,
     property_type: null,
-    micro_market: "Bandra East",
+    micro_market: "Dubai Marina",
     building_name: null,
     landmark_name: null,
     location_label: null,
@@ -32,7 +32,7 @@ function base(over: Partial<ListingCardFields>): ListingCardFields {
     view: null,
     title: null,
     broker_name: "Acme Broker",
-    broker_phone: "9123456789",
+    broker_phone: "+971501234567",
     last_seen: new Date().toISOString(),
     ...over,
   };
@@ -49,15 +49,15 @@ console.log("listing-card view model tests");
 
 // Titles are deterministic summaries of structured data, never raw poster copy.
 check("building card title is a normalized structured summary", () => {
-  const vm = toListingCardViewModel(base({ building_name: "Kalpataru" }), true);
-  assert.equal(vm.title, "Semi-Furnished 3 BHK for Sale at Kalpataru");
-  assert.equal(vm.locality, "Bandra East");
+  const vm = toListingCardViewModel(base({ building_name: "Marina Gate" }), true);
+  assert.equal(vm.title, "Semi Furnished 3 BHK for Sale at Marina Gate");
+  assert.equal(vm.locality, "Dubai Marina");
 });
 
 check("no building name -> structured title uses locality", () => {
   const vm = toListingCardViewModel(base({ building_name: null }), false);
-  assert.equal(vm.title, "Semi-Furnished 3 BHK for Sale at Bandra East");
-  assert.equal(vm.locality, "Bandra East");
+  assert.equal(vm.title, "Semi Furnished 3 BHK for Sale at Dubai Marina");
+  assert.equal(vm.locality, "Dubai Marina");
 });
 check("underscore furnishing values render as readable words", () => {
   const vm = toListingCardViewModel(base({ furnishing: "fully_furnished" }), false);
@@ -67,7 +67,7 @@ check("underscore furnishing values render as readable words", () => {
 
 check("generic property type does not leak as 'Other'", () => {
   const vm = toListingCardViewModel(base({ bhk: null, property_type: "Other", asset_type: "commercial" }), false);
-  assert.equal(vm.title, "Semi-Furnished Commercial Space at Bandra East");
+  assert.equal(vm.title, "Semi Furnished Commercial Space for Sale at Dubai Marina");
   assert.equal(vm.specRow.includes("Other"), false);
 });
 
@@ -76,47 +76,47 @@ check("price_model psf uses area to compute the public price label", () => {
     base({ price: 750, price_unit: "abs", price_model: "psf", price_per_sqft: 750, area_sqft: 1000, intent: "sell" }),
     false,
   );
-  assert.equal(vm.priceLabel, "₹7.5 Lakh");
+  assert.equal(vm.priceLabel, "AED 750k");
 });
 
 // Price always carries an explicit unit.
-check("sale price with cr unit renders Cr", () => {
-  const vm = toListingCardViewModel(base({ price: 2.5, price_unit: "cr", intent: "sell" }), false);
-  assert.match(vm.priceLabel, /Cr$/);
+check("sale price in millions renders M", () => {
+  const vm = toListingCardViewModel(base({ price: 1_500_000, price_unit: "abs", intent: "sell" }), false);
+  assert.match(vm.priceLabel, /M$/);
+});
+check("m unit renders M directly", () => {
+  const vm = toListingCardViewModel(base({ price: 2.5, price_unit: "m", intent: "sell" }), false);
+  assert.equal(vm.priceLabel, "AED 2.5M");
 });
 check("rental price renders /month", () => {
   const vm = toListingCardViewModel(base({ price: 85000, price_unit: "abs", intent: "rent" }), false);
   assert.match(vm.priceLabel, /\/month$/);
 });
-check("lac unit renders Lakh", () => {
-  const vm = toListingCardViewModel(base({ price: 1.4, price_unit: "Lac", intent: "sell" }), false);
-  assert.match(vm.priceLabel, /Lakh$/);
-});
 check("null price -> Price on request (never bare number)", () => {
   const vm = toListingCardViewModel(base({ price: null, price_unit: null }), false);
   assert.equal(vm.priceLabel, "Price on request");
 });
-check("abs unit with no scale -> explicit ₹, not guessed lakh/cr", () => {
+check("abs unit with no scale -> explicit AED, scaled to thousands", () => {
   const vm = toListingCardViewModel(base({ price: 37000, price_unit: "abs", intent: "commercial" }), false);
-  assert.match(vm.priceLabel, /^₹[\d,]+$/);
-  assert.equal(vm.priceLabel.match(/(Lakh|Cr|\/month)$/), null);
+  assert.match(vm.priceLabel, /^AED \d+k$/);
+  assert.equal(vm.priceLabel.match(/(M|\/month)$/), null);
 });
-check("large absolute sale values are normalized to lakh/cr", () => {
-  const vm = toListingCardViewModel(base({ price: 44000000000000, price_unit: "abs", intent: "sell" }), false);
-  assert.match(vm.priceLabel, /Cr$/);
-  assert.equal(vm.priceLabel, "₹4400000 Cr");
+check("large absolute sale values are normalized to M", () => {
+  const vm = toListingCardViewModel(base({ price: 4_400_000_000, price_unit: "abs", intent: "sell" }), false);
+  assert.match(vm.priceLabel, /M$/);
+  assert.equal(vm.priceLabel, "AED 4400M");
 });
-check("large absolute rent values are normalized to lakh/cr per month", () => {
-  const vm = toListingCardViewModel(base({ price: 44000000000000, price_unit: "abs", intent: "rent" }), false);
+check("large absolute rent values are normalized per month", () => {
+  const vm = toListingCardViewModel(base({ price: 4_400_000_000, price_unit: "abs", intent: "rent" }), false);
   assert.match(vm.priceLabel, /\/month$/);
-  assert.match(vm.priceLabel, /Cr\/month$/);
+  assert.match(vm.priceLabel, /M\/month$/);
 });
 
 // Status badge is buyer-readable, not internal "Market pending".
 check("micro_market present -> Available", () => {
-  const vm = toListingCardViewModel(base({ micro_market: "Bandra East" }), false);
-  assert.equal(vm.statusLabel, "Available");
-  assert.equal(vm.statusTone, "available");
+  const vm = toListingCardViewModel(base({ micro_market: "JVC" }), false);
+  assert.equal(vm.statusLabel, "Listed");
+  assert.equal(vm.statusTone, "listed");
 });
 check("micro_market null -> Locality unconfirmed (not 'Market pending')", () => {
   const vm = toListingCardViewModel(base({ micro_market: null }), false);
@@ -131,10 +131,10 @@ check("updatedLabel is a date string, not 'Seen'", () => {
   assert.notEqual(vm.updatedLabel, "Unknown");
 });
 
-// Broker contact must not embed the phone in public HTML (DPDP Act 2023).
-// waLinkFor now returns a server route that resolves the phone server-side.
+// Broker contact must not embed the phone in public HTML.
+// waLinkFor returns a server route that resolves the phone server-side.
 check("waLinkFor returns the server redirect route (no phone in URL)", () => {
-  assert.equal(waLinkFor(123), "/contact-broker/123");
+  assert.equal(waLinkFor(123), "/api/contact-broker/123");
 });
 check("waLinkFor(null) -> no link", () => {
   assert.equal(waLinkFor(null), null);
@@ -144,17 +144,17 @@ check("missing listing id -> no wa link (no dead CTA)", () => {
   assert.equal(vm.waLink, null);
 });
 
-// The reported repro: a 3BHK in a stated locality must yield cards that
+// The canonical repro: a 3BHK in a stated locality must yield cards that
 // satisfy the public-format requirements.
-check('"3 bhk in bandra east" card has a structured title + unit price + status + CTA', () => {
+check('"3 bhk in jvc" card has a structured title + unit price + status + CTA', () => {
   const vm = toListingCardViewModel(
-    base({ bhk: "3 BHK", micro_market: "Bandra East", building_name: "Sky Heights", price: 3, price_unit: "cr", intent: "sell", broker_phone: "9988776655" }),
+    base({ bhk: "3 BHK", micro_market: "JVC", building_name: "Belgravia", price: 1_800_000, price_unit: "abs", intent: "sell", broker_phone: "+971501234567" }),
     true,
   );
-  assert.equal(vm.title, "Semi-Furnished 3 BHK for Sale at Sky Heights");
-  assert.match(vm.priceLabel, /Cr$/);
-  assert.equal(vm.statusLabel, "Available");
-  assert.equal(vm.waLink, "/contact-broker/1");
+  assert.equal(vm.title, "Semi Furnished 3 BHK for Sale at Belgravia");
+  assert.match(vm.priceLabel, /M$/);
+  assert.equal(vm.statusLabel, "Listed");
+  assert.equal(vm.waLink, "/api/contact-broker/1");
 });
 
 // Deal tags: whitelist enforced server-side too; here we verify the public
@@ -191,22 +191,22 @@ check("deal_tags null/empty -> empty VM array", () => {
   assert.deepEqual(c.dealTags, []);
 });
 
-// Additional charges: fixed amounts render as '+ ₹XL' / '+ ₹XCr'; percent
+// Additional charges: fixed amounts render as '+ AED Xk/M'; percent
 // amounts render as 'N% of price'; malformed entries are dropped silently.
 check("additional_charges renders fixed amounts with explicit unit", () => {
   const vm = toListingCardViewModel(
     base({
       additional_charges: [
-        { label: "Society dues", amount: 1000000, amount_type: "fixed" },
-        { label: "Professional fees", amount: 15000000, amount_type: "fixed" },
+        { label: "Society dues", amount: 10_000, amount_type: "fixed" },
+        { label: "Professional fees", amount: 1_500_000, amount_type: "fixed" },
       ],
     }),
     false,
   );
   assert.equal(vm.additionalCharges.length, 2);
   assert.equal(vm.additionalCharges[0].label, "Society dues");
-  assert.equal(vm.additionalCharges[0].amountLabel, "+ ₹10L");
-  assert.equal(vm.additionalCharges[1].amountLabel, "+ ₹1.5Cr");
+  assert.equal(vm.additionalCharges[0].amountLabel, "+ AED 10k");
+  assert.equal(vm.additionalCharges[1].amountLabel, "+ AED 1.5M");
 });
 check("additional_charges renders percent_of_price as 'N% of price'", () => {
   const vm = toListingCardViewModel(
@@ -222,7 +222,7 @@ check("additional_charges drops malformed entries silently", () => {
   const vm = toListingCardViewModel(
     base({
       additional_charges: [
-        { label: "Society dues", amount: 1000000, amount_type: "fixed" },            // valid
+        { label: "Society dues", amount: 100000, amount_type: "fixed" },              // valid
         { label: "", amount: 100000, amount_type: "fixed" },                          // missing label
         { label: "Garbage" } as unknown as AdditionalCharge,                          // missing amount
         { label: "Bad", amount: 100000, amount_type: "weekly" } as unknown as AdditionalCharge, // bad amount_type
@@ -251,14 +251,14 @@ check("additional_charges null/empty -> empty VM array", () => {
 // appended so the URL stays unique even when the prefix is empty.
 check("buildListingSlug formats bhk + locality + id", () => {
   assert.equal(
-    buildListingSlug({ id: 12345, bhk: "3 BHK", micro_market: "Bandra West" }),
-    "3-bhk-bandra-west-12345",
+    buildListingSlug({ id: 12345, bhk: "3 BHK", micro_market: "Dubai Marina" }),
+    "3-bhk-dubai-marina-12345",
   );
 });
 check("buildListingSlug falls back to building when locality missing", () => {
   assert.equal(
-    buildListingSlug({ id: 319236, bhk: "3 BHK", micro_market: null, building_name: "Rajgriha CHS" }),
-    "3-bhk-rajgriha-chs-319236",
+    buildListingSlug({ id: 319236, bhk: "3 BHK", micro_market: null, building_name: "Marina Gate" }),
+    "3-bhk-marina-gate-319236",
   );
 });
 check("buildListingSlug returns just the id when no fields available", () => {
@@ -267,14 +267,14 @@ check("buildListingSlug returns just the id when no fields available", () => {
 });
 check("buildListingSlug handles fractional bhk", () => {
   assert.equal(
-    buildListingSlug({ id: 999, bhk: "2.5 BHK", micro_market: "Powai" }),
-    "2-5-bhk-powai-999",
+    buildListingSlug({ id: 999, bhk: "2.5 BHK", micro_market: "Business Bay" }),
+    "2-5-bhk-business-bay-999",
   );
 });
 check("buildListingSlug removes a float suffix from whole-number bhk", () => {
   assert.equal(
-    buildListingSlug({ id: 93, bhk: "2.0", building_name: "Rustomjee Paramount", micro_market: "Khar West" }),
-    "2-bhk-rustomjee-paramount-khar-west-93",
+    buildListingSlug({ id: 93, bhk: "2.0", building_name: "Marina Gate", micro_market: "JBR" }),
+    "2-bhk-marina-gate-jbr-93",
   );
 });
 check("furnishing labels keep Fully Furnished as two words", () => {
@@ -287,11 +287,11 @@ check("buildListingSlug returns null for non-finite id", () => {
 });
 check("href uses the slug and id required by the public route", () => {
   const vm = toListingCardViewModel(
-    base({ id: 319236, bhk: "3 BHK", micro_market: "Andheri West", building_name: "Rajgriha CHS" }),
+    base({ id: 319236, bhk: "3 BHK", micro_market: "Al Barsha", building_name: "Al Sarab Tower" }),
     false,
   );
-  assert.equal(vm.href, "/listings/3-bhk-andheri-west-319236/319236");
-  assert.equal(vm.slug, "3-bhk-andheri-west-319236");
+  assert.equal(vm.href, "/listings/3-bhk-al-sarab-tower-al-barsha-319236/319236");
+  assert.equal(vm.slug, "3-bhk-al-sarab-tower-al-barsha-319236");
 });
 check("href falls back to bare id when slug cannot be computed", () => {
   // NaN id produces a null slug and a null href.
@@ -304,12 +304,16 @@ check("href falls back to bare id when slug cannot be computed", () => {
 //
 // Mirrors the server-side check in /api/contact-broker/[id] so the public
 // card never shows a button that would just 302 back to the listing.
-check("waAvailable true when broker_phone is 10 digits", () => {
-  const vm = toListingCardViewModel(base({ broker_phone: "9123456789" }), false);
+check("waAvailable true when broker_phone is UAE E.164 digits", () => {
+  const vm = toListingCardViewModel(base({ broker_phone: "+971501234567" }), false);
   assert.equal(vm.waAvailable, true);
 });
-check("waAvailable true when broker_phone has +91 prefix", () => {
-  const vm = toListingCardViewModel(base({ broker_phone: "+91 9123456789" }), false);
+check("waAvailable true when broker_phone has bare country-code digits", () => {
+  const vm = toListingCardViewModel(base({ broker_phone: "971501234567" }), false);
+  assert.equal(vm.waAvailable, true);
+});
+check("waAvailable true for legacy India-format rows", () => {
+  const vm = toListingCardViewModel(base({ broker_phone: "+91 9820056180" }), false);
   assert.equal(vm.waAvailable, true);
 });
 check("waAvailable false when broker_phone null", () => {
@@ -321,9 +325,10 @@ check("waAvailable false when broker_phone too short", () => {
   assert.equal(vm.waAvailable, false);
 });
 check("isBrokerContactable handles raw digits", () => {
-  assert.equal(isBrokerContactable("9123456789"), true);
-  assert.equal(isBrokerContactable("919123456789"), true);
-  assert.equal(isBrokerContactable("+91 9123456789"), true);
+  assert.equal(isBrokerContactable("971501234567"), true);
+  assert.equal(isBrokerContactable("+971 50 123 4567"), true);
+  assert.equal(isBrokerContactable("919820056180"), true);
+  assert.equal(isBrokerContactable("9820056180"), true);
   assert.equal(isBrokerContactable(null), false);
   assert.equal(isBrokerContactable(undefined), false);
   assert.equal(isBrokerContactable(""), false);

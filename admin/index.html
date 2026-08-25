@@ -551,7 +551,7 @@ function renderFeed(feed) {
   }
   el.innerHTML = feed.map(f => {
     const msgType = f.intent || 'TEXT';
-    const priceStr = f.price ? `₹${Number(f.price).toLocaleString()} ${f.price_unit || ''}` : '';
+    const priceStr = f.price ? `AED ${Number(f.price).toLocaleString()} ${f.price_unit || ''}` : '';
     const detail = [f.bhk, f.furnishing, priceStr, f.building_name, f.landmark_name, f.micro_market].filter(Boolean).join(' • ');
     const typeBadge = msgType === 'SELL' ? 'green' : msgType === 'BUY' ? 'purple' : msgType === 'RENT' ? 'yellow' : msgType === 'COMMERCIAL' ? 'orange' : msgType === 'PRE-LAUNCH' ? 'red' : 'blue';
     const ts = f.timestamp ? new Date(f.timestamp + 'Z').toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';

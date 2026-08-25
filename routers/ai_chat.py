@@ -610,7 +610,7 @@ def _has_query_signals(text: str) -> bool:
         "flat", "apartment", "office", "shop", "property", "commercial",
         "listing", "listings", "properties", "deal", "requirement", "requirements",
         "show", "find", "search", "look", "need", "want",
-        "cr", "lakh", "lac", "thousand", "crore",
+        "m", "mn", "million", "k", "thousand",
         "aed", "dhs", "dirham", "cheque",
         "marina", "jbr", "jvc", "jlt", "business bay", "downtown", "difc",
         "palm jumeirah", "barsha", "furjan", "springs", "meadows", "greens",

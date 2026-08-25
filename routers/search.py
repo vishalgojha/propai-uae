@@ -287,7 +287,7 @@ async def _parse_query_llm(query: str) -> Optional[ParsedQuery]:
         client = get_fast_client()
         model = get_fast_model()
         prompt = f"""
-Parse this Mumbai real estate search query into structured JSON:
+Parse this Dubai real estate search query into structured JSON:
 
 Query: "{query}"
 
@@ -295,8 +295,8 @@ Return JSON with: bhk (number or null), intent ("rent"|"sale"|null), minPrice (r
 
 Rules:
 - Extract explicit values only, don't infer
-- Convert rupees: 1 Lakh = 100,000, 1 Crore = 10,000,000
-- Locality: extract city/area names like Bandra, Andheri, Powai, etc.
+- Convert dirhams: 1K = 1,000, 1M = 1,000,000
+- Locality: extract Dubai area names like Dubai Marina, JVC, Business Bay, etc.
 - For "between X and Y" locality patterns, return both in localities array
 - Building: extract society/complex names like "Kalpataru", "Prestige", etc.
 

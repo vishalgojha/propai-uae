@@ -67,7 +67,7 @@ function RawSourceMessage({
   if (!stripped) return null;
 
   const formattedTime = timestamp
-    ? new Date(timestamp).toLocaleDateString("en-IN", {
+    ? new Date(timestamp).toLocaleDateString("en-AE", {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -136,7 +136,7 @@ function formatDetailValue(key: string, value: unknown): string | null {
   if (Array.isArray(value)) return value.filter(Boolean).join(", ") || null;
   if (typeof value === "number") {
     const suffix = key.includes("area") ? " sqft" : key.includes("months") ? " months" : "";
-    return `${value.toLocaleString("en-IN")}${suffix}`;
+    return `${value.toLocaleString("en-AE")}${suffix}`;
   }
   const text = String(value).replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
   if (/^(?:not specified|not available|unknown|none|null|n\/a|na|-)$/.test(text.toLowerCase())) return null;
@@ -337,7 +337,7 @@ export default async function ListingPage({ params }: Params) {
                       </div>
                       <p className="text-zinc-400 text-sm">{l.bhk} • {l.property_type} • {l.micro_market}</p>
                       <p className="text-xs text-zinc-500 mt-1">
-                        Last seen: {l.last_seen ? new Date(l.last_seen).toLocaleDateString("en-IN") : "recently"}
+                        Last seen: {l.last_seen ? new Date(l.last_seen).toLocaleDateString("en-AE") : "recently"}
                       </p>
                     </Link>
                   ))}
@@ -424,22 +424,24 @@ export default async function ListingPage({ params }: Params) {
   // Canonical URL mirrors the dynamic route: /listings/[slug]/[id].
   const listingUrl = `${siteUrl}/listings/${canonicalSlug ?? "listing"}/${numericId}`;
   const priceUnit = (listing.price_unit || "").toLowerCase();
-  let priceINR: number | null = null;
+  let priceAED: number | null = null;
   if (typeof listing.price === "number" && !Number.isNaN(listing.price)) {
-    if (priceUnit.includes("cr")) priceINR = listing.price * 1_00_00_000;
-    else if (priceUnit.includes("lac") || priceUnit.includes("lakh")) priceINR = listing.price * 1_00_000;
-    else if (priceUnit.includes("k")) priceINR = listing.price * 1_000;
-    else priceINR = listing.price;
+    if (priceUnit === "m" || priceUnit === "mn" || priceUnit.includes("million")) priceAED = listing.price * 1_000_000;
+    else if (priceUnit === "k" || priceUnit.includes("thousand")) priceAED = listing.price * 1_000;
+    // Legacy Indian-unit rows kept as a safety net; fresh ingestion emits abs/k/m.
+    else if (priceUnit.includes("cr")) priceAED = listing.price * 10_000_000;
+    else if (priceUnit.includes("lac") || priceUnit.includes("lakh")) priceAED = listing.price * 100_000;
+    else priceAED = listing.price;
   }
-  const safeTitle = card.title || `${listing.bhk || ""} ${listing.property_type || "property"} in ${card.locality || "Mumbai"}`.trim();
-  const safeLocality = card.locality || "Mumbai";
+  const safeTitle = card.title || `${listing.bhk || ""} ${listing.property_type || "property"} in ${card.locality || "Dubai"}`.trim();
+  const safeLocality = card.locality || "Dubai";
   const listingSchema = buildRealEstateListing({
     url: listingUrl,
     id: numericId,
     title: safeTitle,
-    description: `${dealType} — ${card.title || "property"} in ${card.locality || "Mumbai"}. Listed via live WhatsApp broker network, routed directly to the posting broker.`,
-    price: priceINR,
-    priceCurrency: "INR",
+    description: `${dealType} — ${card.title || "property"} in ${card.locality || "Dubai"}. Listed via live WhatsApp broker network, routed directly to the posting broker.`,
+    price: priceAED,
+    priceCurrency: "AED",
     dealType,
     bedrooms: listing.bhk,
     areaSqft: typeof listing.area_sqft === "number" ? listing.area_sqft : null,
@@ -597,7 +599,7 @@ export default async function ListingPage({ params }: Params) {
                   if (diffMs < dayMs) return "today";
                   if (diffMs < 2 * dayMs) return "yesterday";
                   if (diffMs < 7 * dayMs) return `${Math.floor(diffMs / dayMs)}d ago`;
-                  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                  return d.toLocaleDateString("en-AE", { day: "numeric", month: "short" });
                 })() : "recently"}
               </p>
             </div>

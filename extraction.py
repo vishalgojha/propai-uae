@@ -2182,7 +2182,7 @@ def _ai_extraction_to_typed(
             "intent": "RENT" if tx == "rent" else "BUY",
             "budget_min": budget_min,
             "budget_max": budget_max,
-            "budget_currency": "INR",
+            "budget_currency": "AED",
             "area_min_sqft": ai.get("area_min_sqft") or area,
             "area_max_sqft": ai.get("area_max_sqft") or area,
             "locality_options": ai.get("locality_options") or ([resolved_locality] if resolved_locality else []),

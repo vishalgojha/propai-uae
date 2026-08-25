@@ -15,7 +15,7 @@ export default function NotFound() {
           </h1>
           <p className="text-[15px] lg:text-[17px] text-zinc-400 mb-8">
             The listing or page you&apos;re looking for isn&apos;t here — it may have
-            been rented, removed, or never existed. Try searching live Mumbai inventory instead.
+            been rented, removed, or never existed. Try searching live Dubai inventory instead.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link

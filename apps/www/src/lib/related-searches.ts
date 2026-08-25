@@ -42,28 +42,63 @@ function intentSlug(intent: string | null): string {
 }
 
 // ── Adjacency: which localities are "nearby" ──────────────────────
-// Derived from Mumbai geography — Western suburbs corridor.
+// Derived from Dubai geography — Sheikh Zayed Road corridor and beyond.
 // Falls back to top-by-listing-count if no adjacency match.
 const ADJACENCY: Record<string, string[]> = {
-  "bandra west": ["khar west", "santacruz west", "bandra east", "bandra kurla complex", "juhu"],
-  "bandra east": ["bandra west", "bandra kurla complex", "khar west", "santacruz east"],
-  "khar west": ["bandra west", "santacruz west", "andheri west"],
-  "santacruz west": ["bandra west", "khar west", "andheri west", "santacruz east"],
-  "santacruz east": ["santacruz west", "bandra east", "andheri east"],
-  "andheri west": ["khar west", "santacruz west", "goregaon west", "juhu", "vile parle west"],
-  "andheri east": ["andheri west", "santacruz east", "marol", "goregaon east"],
-  "goregaon west": ["andheri west", "malad west", "juhu"],
-  "goregaon east": ["andheri east", "malad east"],
-  "malad west": ["goregaon west", "kandivali west"],
-  "malad east": ["goregaon east", "kandivali east"],
-  "juhu": ["andheri west", "bandra west", "santacruz west"],
-  "powai": ["vikhroli", "andel east", "ghatkopar east"],
-  "lower parel": ["worli", "parel", "mahim"],
-  "worli": ["lower parel", "prabhadevi", "mahalaxmi"],
-  "parel": ["lower parel", "prabhadevi", "lalbaug"],
-  "dadar west": ["matunga", "mahim", "parel"],
-  "dadar east": ["matunga", "sion", "wadala"],
-  "thane west": ["ghodbunder road", "wagle estate"],
+  "dubai marina": ["jbr", "jlt", "al sufouh", "umm suqeim", "the greens"],
+  "jbr": ["dubai marina", "jlt", "al sufouh"],
+  "jlt": ["dubai marina", "jbr", "jvc", "jvt", "emirates hills"],
+  "jvc": ["jvt", "jlt", "dubai hills estate", "motor city", "arjan"],
+  "jvt": ["jvc", "jlt", "motor city"],
+  "palm jumeirah": ["dubai marina", "jbr", "al sufouh", "umm suqeim"],
+  "dubai hills estate": ["al barsha", "jvc", "meydan", "mbr city"],
+  "al barsha": ["dubai hills estate", "umm suqeim", "al sufouh", "motor city"],
+  "the greens": ["dubai marina", "jlt", "al sufouh", "al barsha"],
+  "the views": ["the greens", "the lakes", "the springs", "emirates hills"],
+  "the springs": ["the meadows", "the lakes", "the views", "emirates hills"],
+  "the meadows": ["the springs", "the lakes", "the views", "emirates hills"],
+  "the lakes": ["the springs", "the meadows", "the views", "emirates hills"],
+  "emirates hills": ["the springs", "the meadows", "jumeirah golf estates", "jlt"],
+  "jumeirah golf estates": ["emirates hills", "dubai investment park", "green community"],
+  "jumeirah islands": ["emirates hills", "jumeirah golf estates", "the springs"],
+  "difc": ["zaabeel", "city walk", "mbr city"],
+  "city walk": ["zaabeel", "oud metha", "jumeirah"],
+  "zaabeel": ["city walk", "oud metha", "karama", "meydan"],
+  "al jaddaf": ["oud metha", "zaabeel", "bur dubai"],
+  "oud metha": ["karama", "zaabeel", "al jaddaf", "bur dubai"],
+  "karama": ["bur dubai", "oud metha", "satwa", "zaabeel"],
+  "satwa": ["jumeirah", "bur dubai", "karama", "city walk"],
+  "bur dubai": ["deira", "satwa", "jumeirah", "oud metha"],
+  "deira": ["bur dubai", "al nahda", "al warqa", "oud metha"],
+  "al nahda": ["muhaisnah", "deira", "mirdif"],
+  "mirdif": ["al warqa", "muhaisnah", "al nahda"],
+  "al warqa": ["mirdif", "muhaisnah", "nad al sheba"],
+  "muhaisnah": ["al nahda", "mirdif", "academic city"],
+  "international city": ["muhaisnah", "al warqa", "mirdif"],
+  "jumeirah": ["satwa", "umm suqeim", "al sufouh", "bur dubai"],
+  "umm suqeim": ["jumeirah", "al sufouh", "al barsha", "dubai hills estate"],
+  "al sufouh": ["jumeirah", "umm suqeim", "dubai marina", "al barsha", "the greens"],
+  "motor city": ["jvc", "sports city", "arjan", "production city"],
+  "sports city": ["motor city", "jvc", "production city", "arjan"],
+  "production city": ["sports city", "motor city", "remraam", "arjan"],
+  "arjan": ["sports city", "production city", "remraam", "damac hills"],
+  "damac hills": ["arjan", "remraam", "mudon"],
+  "remraam": ["arjan", "mudon", "dubailand"],
+  "mudon": ["arjan", "remraam", "town square", "dubailand"],
+  "town square": ["mudon", "dubailand", "liwan", "majan"],
+  "dubailand": ["town square", "majan", "liwan", "mudon"],
+  "liwan": ["majan", "town square", "dubailand", "nad al sheba"],
+  "majan": ["liwan", "dubailand", "town square"],
+  "nad al sheba": ["meydan", "mbr city", "liwan", "al warqa"],
+  "meydan": ["nad al sheba", "mbr city", "dubai hills estate"],
+  "mbr city": ["meydan", "nad al sheba", "zaabeel", "reem"],
+  "reem": ["mbr city", "meydan", "nad al sheba"],
+  "dubai silicon oasis": ["academic city", "majan", "liwan"],
+  "academic city": ["dubai silicon oasis", "muhaisnah", "al warqa"],
+  "discovery gardens": ["jebel ali", "green community", "dubai investment park"],
+  "jebel ali": ["discovery gardens", "green community", "dubai investment park"],
+  "green community": ["dubai investment park", "jebel ali", "discovery gardens"],
+  "dubai investment park": ["green community", "discovery gardens", "jebel ali"],
 };
 
 function getAdjacentLocalities(raw: string): string[] {
@@ -124,34 +159,34 @@ function buildBudgetSuggestions(
   locality: string | null,
 ): RelatedSection | null {
   const isRent = intent?.toLowerCase() === "rent";
-  // Typical budget brackets for Mumbai
+  // Typical budget brackets for Dubai
   const brackets = isRent
     ? [
-        { min: 20_000, max: 40_000, label: "₹20K – 40K/month" },
-        { min: 40_000, max: 80_000, label: "₹40K – 80K/month" },
-        { min: 80_000, max: 1_50_000, label: "₹80K – 1.5L/month" },
-        { min: 1_50_000, max: 3_00_000, label: "₹1.5L – 3L/month" },
-        { min: 3_00_000, max: 5_00_000, label: "₹3L – 5L/month" },
+        { min: 30_000, max: 60_000, label: "AED 30K – 60K/yr" },
+        { min: 60_000, max: 100_000, label: "AED 60K – 100K/yr" },
+        { min: 100_000, max: 150_000, label: "AED 100K – 150K/yr" },
+        { min: 150_000, max: 250_000, label: "AED 150K – 250K/yr" },
+        { min: 250_000, max: 500_000, label: "AED 250K – 500K/yr" },
       ]
     : [
-        { min: 50_00_000, max: 1_00_00_000, label: "₹50L – 1 Cr" },
-        { min: 1_00_00_000, max: 2_00_00_000, label: "₹1 – 2 Cr" },
-        { min: 2_00_00_000, max: 5_00_00_000, label: "₹2 – 5 Cr" },
-        { min: 5_00_00_000, max: 10_00_00_000, label: "₹5 – 10 Cr" },
-        { min: 10_00_00_000, max: 50_00_00_000, label: "₹10 – 50 Cr" },
+        { min: 500_000, max: 1_000_000, label: "AED 500K – 1M" },
+        { min: 1_000_000, max: 2_000_000, label: "AED 1M – 2M" },
+        { min: 2_000_000, max: 5_000_000, label: "AED 2M – 5M" },
+        { min: 5_000_000, max: 10_000_000, label: "AED 5M – 10M" },
+        { min: 10_000_000, max: 50_000_000, label: "AED 10M – 50M" },
       ];
 
   // If user has a budget, show brackets around it
-  const targetINR = minPrice || maxPrice;
+  const targetPrice = minPrice || maxPrice;
   let selected = brackets;
-  if (targetINR) {
-    const idx = brackets.findIndex((b) => targetINR >= b.min && targetINR <= b.max);
+  if (targetPrice) {
+    const idx = brackets.findIndex((b) => targetPrice >= b.min && targetPrice <= b.max);
     if (idx >= 0) {
       // Show this bracket + neighbors
       const start = Math.max(0, idx - 1);
       const end = Math.min(brackets.length, idx + 2);
       selected = brackets.slice(start, end);
-    } else if (targetINR < brackets[0].min) {
+    } else if (targetPrice < brackets[0].min) {
       selected = brackets.slice(0, 3);
     } else {
       selected = brackets.slice(-3);

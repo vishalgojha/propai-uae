@@ -17,7 +17,7 @@ export default function CountUp({
   prefix = "",
   suffix = "",
   className = "",
-  locale = "en-IN",
+  locale = "en-AE",
 }: CountUpProps) {
   // SSR: render the real value so crawlers see accurate numbers.
   // On mount, reset to 0 and animate up — users see the count-up effect.

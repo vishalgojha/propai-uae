@@ -16,9 +16,9 @@ export const revalidate = 300;
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Property Map — Live Mumbai Listings | PropAI",
+  title: "Property Map — Live Dubai Listings | PropAI",
   description:
-    "Explore fresh Mumbai property listings on a map, with live broker inventory alongside every mapped result.",
+    "Explore fresh Dubai property listings on a map, with live broker inventory alongside every mapped result.",
 };
 
 export default async function MapPage() {
@@ -41,8 +41,8 @@ export default async function MapPage() {
               Find properties by location
             </h1>
             <p className="mt-4 text-[15px] lg:text-[18px] text-zinc-400">
-              Browse {results.length.toLocaleString("en-IN")} fresh listings from
-              the WhatsApp broker network, with {mappedResults.length.toLocaleString("en-IN")} plotted on the map.
+              Browse {results.length.toLocaleString("en-AE")} fresh listings from
+              the WhatsApp broker network, with {mappedResults.length.toLocaleString("en-AE")} plotted on the map.
             </p>
           </header>
 
@@ -71,7 +71,7 @@ export default async function MapPage() {
               </section>
 
               <section
-                aria-label="Mumbai property map"
+                aria-label="Dubai property map"
                 className="order-1 lg:order-2 lg:sticky lg:top-24"
               >
                 <SearchMapLoader results={results} apiKey={GOOGLE_MAPS_API_KEY} />
