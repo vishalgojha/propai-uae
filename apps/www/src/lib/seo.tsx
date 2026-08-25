@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { getSiteUrl as resolveSiteUrl } from "@/lib/site";
+
 // Generic, XSS-safe JSON-LD injector. Renders a <script type="application/ld+json">
 // with the supplied object serialized to JSON. Used for GEO/AEO structured data
 // so Google AI Mode and LLMs (ChatGPT, Perplexity) can cite PropAI's listings.
@@ -14,14 +16,7 @@ export function JsonLd({ data }: { data: Record<string, unknown> }) {
 }
 
 export function getSiteUrl(): string {
-  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL) {
-    try {
-      return new URL(process.env.NEXT_PUBLIC_SITE_URL).origin;
-    } catch {
-      /* fall through */
-    }
-  }
-  return "https://www.propai.live";
+  return resolveSiteUrl();
 }
 
 type OrgInput = {

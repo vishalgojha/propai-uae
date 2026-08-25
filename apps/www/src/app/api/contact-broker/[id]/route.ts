@@ -42,7 +42,7 @@ function buildRecallMessage(
     subject += ` in ${locality}`;
   }
 
-  const listingUrl = `https://www.propai.live${canonicalPath}`;
+  const listingUrl = `${getSiteUrl()}${canonicalPath}`;
   parts.push(`Hi, I came across this listing on PropAI — ${listingUrl} — and I'm interested.`);
   // This route is for one listing, so preserve its normalized single-item
   // source slice as the recall context. It contains the broker's actual facts

@@ -14,8 +14,14 @@ ARG CACHE_BUST=20260719-peerfix
 # the client bundle as well as when the standalone server renders map pages.
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ARG GOOGLE_MAPS_API_KEY
+# Public site URL so canonical/sitemap/recall links point at the deployed
+# domain (ae.propai.live vs www.propai.live) instead of a hardcoded host.
+ARG NEXT_PUBLIC_SITE_URL
+ARG SITE_URL
 ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ENV GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV SITE_URL=$SITE_URL
 COPY --from=deps /app/node_modules ./node_modules
 
 COPY apps/www/package.json ./
@@ -34,12 +40,16 @@ WORKDIR /app
 ARG CACHE_BUST_COPY=20260716-1
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ARG GOOGLE_MAPS_API_KEY
+ARG NEXT_PUBLIC_SITE_URL
+ARG SITE_URL
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ENV GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV SITE_URL=$SITE_URL
 
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
