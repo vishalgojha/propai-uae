@@ -1,4 +1,32 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - www
+      - app
+    restart: unless-stopped
+
+  www:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.www
+    environment:
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://ae.propai.live}
+      SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://ae.propai.live}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+    expose:
+      - "3000"
+    restart: unless-stopped
+
   api:
     build:
       context: ../..
@@ -249,3 +277,4 @@ services:
 
 volumes:
   propai-data:
+  caddy-data:

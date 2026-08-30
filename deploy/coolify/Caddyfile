@@ -1,0 +1,12 @@
+# ae.propai.live — UAE public site + broker dashboard
+ae.propai.live {
+    # Broker dashboard (login, signup, callback)
+    handle /broker/* {
+        reverse_proxy app:3000
+    }
+
+    # Everything else → www marketing site
+    handle {
+        reverse_proxy www:3000
+    }
+}
